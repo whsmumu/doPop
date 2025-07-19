@@ -1,0 +1,204 @@
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-user-select: none;
+    user-select: none;
+    outline: none;
+}
+
+html, body, #root {
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    overflow: hidden !important;
+    width: 100%;
+    height: 100%;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-size: 14px;
+}
+
+.macos-window {
+    width: 100%;
+    height: 100vh;
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    background-color: rgba(25, 25, 25, 0.3);
+    border-radius: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+
+.titlebar {
+    height: 3.25rem; 
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 1.25rem; 
+    -webkit-app-region: drag;
+    flex-shrink: 0;
+}
+
+.window-title {
+    font-size: 0.8125rem; 
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+    -webkit-app-region: no-drag;
+    pointer-events: none;
+}
+
+
+.window-content {
+    flex: 1;
+    padding: 2rem; 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+}
+
+.window-content h1 {
+    font-size: 1.5rem; 
+    font-weight: 300; 
+    color: rgba(255, 255, 255, 0.95);
+    margin-bottom: 0.5rem;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.window-content p {
+    font-size: 14px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.7);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+
+button, input, select, textarea {
+    border-radius: 7px;
+    cursor: default;
+    font-size: 14px;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    outline: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+button {
+  background: transparent;
+  border: none;
+  font-size: 14px;
+}
+button:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+a {
+    cursor: default;
+    outline: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+
+@media (max-width: 48rem) { 
+    .titlebar {
+        height: 2.75rem; 
+        padding: 0 1rem;
+    }
+    .window-content {
+        padding: 1.5rem;
+    }
+    .window-content h1 {
+        font-size: 1.25rem;
+    }
+}
+
+
+.macos-footer {
+    height: 36px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    flex-shrink: 0;
+    -webkit-user-select: none;
+    user-select: none;
+    position: relative;
+}
+
+.footer {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+
+.macos-footer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 1rem;
+    right: 1rem;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+
+@media (prefers-color-scheme: dark) {
+    .window-content h1 {
+        color: rgba(255, 255, 255, 0.95);
+    }
+    
+    .window-content p {
+        color: rgba(255, 255, 255, 0.7);
+    }
+    
+    .window-title {
+        color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .macos-footer {
+        color: rgba(255, 255, 255, 0.6);
+    }
+    
+    .macos-footer::before {
+        background: rgba(255, 255, 255, 0.05);
+    }
+}
+
+@media (prefers-color-scheme: light) {
+    .window-content h1 {
+        color: rgba(0, 0, 0, 0.9);
+        text-shadow: 0 1px 3px rgba(255, 255, 255, 0.5);
+    }
+    
+    .window-content p {
+        color: rgba(0, 0, 0, 0.7);
+        text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
+    }
+    
+    .window-title {
+        color: rgba(0, 0, 0, 0.8);
+    }
+    
+    .macos-footer {
+        color: rgba(0, 0, 0, 0.6);
+    }
+    
+    .macos-footer::before {
+        background: rgba(0, 0, 0, 0.1);
+    }
+}
