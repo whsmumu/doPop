@@ -18,7 +18,7 @@
         "title": "bewindow",
         "width": 520,
         "height": 390,
-        "visible": false,
+        "visible": true,
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
         "alwaysOnTop": true,
