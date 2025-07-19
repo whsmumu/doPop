@@ -42,7 +42,7 @@ function App() {
 
       <footer className="macos-footer">
         <div className="footer-left">
-          ↩ Select &nbsp;&nbsp; {cmdSymbol}↩ Open
+          made by bero ☕️
         </div>
         <div className="footer-right">
           {toggleShortcut} Toggle window
