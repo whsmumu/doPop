@@ -1,6 +1,3 @@
----
-alwaysApply: true
----
 # 🍎 macOS Native Interface Specifications for Tauri Apps
 
 ## Core Principles
@@ -22,7 +19,7 @@ border: 1px solid rgba(255, 255, 255, 0.25);
 border-radius: 1rem; /* 16px - macOS Big Sur+ standard */
 
 /* Native shadows */
-box-shadow: 
+box-shadow:
     0 0.5rem 2rem rgba(0, 0, 0, 0.15),      /* Main shadow */
     0 0.25rem 0.5rem rgba(0, 0, 0, 0.1),    /* Close shadow */
     inset 0 1px 0 rgba(255, 255, 255, 0.1); /* Internal highlight */
@@ -202,7 +199,7 @@ transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         background: rgba(255, 255, 255, 0.2);
         border: 1px solid rgba(255, 255, 255, 0.3);
     }
-    
+
     /* Adjust text colors for light background */
     .window-content h1 {
         color: rgba(0, 0, 0, 0.9);
@@ -220,11 +217,11 @@ transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         width: 95vw;
         height: 80vh;
     }
-    
+
     .titlebar {
         height: 2.75rem; /* 44px - touch-friendly */
     }
-    
+
     .traffic-light {
         width: 1rem;
         height: 1rem;
@@ -237,7 +234,7 @@ transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 ### Accessibility
 ```css
 .macos-window:focus-within {
-    box-shadow: 
+    box-shadow:
         /* Enhanced shadows */,
         0 0 0 2px rgba(0, 123, 255, 0.3); /* Focus ring */
 }
@@ -352,4 +349,90 @@ NSVisualEffectMaterial::Menu          // For menu panels
 
 ---
 
-**Remember**: Always test on actual macOS devices and follow Apple's Human Interface Guidelines for the most authentic native experience. 
+**Remember**: Always test on actual macOS devices and follow Apple's Human Interface Guidelines for the most authentic native experience.
+---
+alwaysApply: true
+---
+
+# 🍎 ALWAYS APPLY NATIVE macOS STYLING
+
+## 🎯 PRIMARY RULE
+**WHENEVER adding ANY new element, component, or UI to this project, ALWAYS apply native macOS styling patterns.**
+
+## ⚡ ESSENTIAL macOS STANDARDS
+
+### 1. Typography (ALWAYS USE)
+```css
+font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+font-size: 14px; /* Base size */
+-webkit-font-smoothing: antialiased;
+```
+
+### 2. Interactive Elements (ALWAYS APPLY)
+```css
+/* All buttons, inputs, links */
+border-radius: 7px;
+outline: none;
+user-select: none;
+cursor: default; /* NEVER use pointer */
+```
+
+### 3. Glassmorphism (ALWAYS USE FOR CONTAINERS)
+```css
+background: rgba(255, 255, 255, 0.1);
+backdrop-filter: blur(20px);
+-webkit-backdrop-filter: blur(20px);
+border: 1px solid rgba(255, 255, 255, 0.2);
+```
+
+### 4. Native Spacing
+```css
+padding: 1rem; /* 16px base */
+gap: 0.5rem; /* 8px for elements */
+height: 3.25rem; /* 52px for titlebars */
+```
+
+### 5. Native Colors
+```css
+/* Text colors */
+color: rgba(255, 255, 255, 0.9); /* Dark mode */
+color: rgba(0, 0, 0, 0.9); /* Light mode */
+
+/* Subtle backgrounds */
+background: rgba(255, 255, 255, 0.05);
+```
+
+### 6. Native Animations
+```css
+transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+```
+
+## 🚫 NEVER DO
+- ❌ Use `cursor: pointer` on buttons/links
+- ❌ Add `outline` or focus rings
+- ❌ Allow text selection (`user-select: auto`)
+- ❌ Use non-native fonts
+- ❌ Use sharp corners (always 7px+ radius)
+- ❌ Use bright/vibrant colors
+
+## ✅ ALWAYS DO
+- ✅ Use system fonts (`-apple-system`)
+- ✅ Apply glassmorphism to containers
+- ✅ Use 7px border-radius minimum
+- ✅ Disable text selection
+- ✅ Remove focus outlines
+- ✅ Use native easing curves
+- ✅ Support dark/light mode automatically
+
+## 🔧 Window Vibrancy (USE FOR BACKGROUNDS)
+```rust
+use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial};
+apply_vibrancy(&window, NSVisualEffectMaterial::Menu, None, None)
+```
+
+---
+
+**CRITICAL: Every new element MUST follow these patterns to maintain native macOS feel.**
+---
+
+**Remember**: Always test on actual macOS devices and follow Apple's Human Interface Guidelines for the most authentic native experience.
