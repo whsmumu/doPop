@@ -11,8 +11,6 @@ function App() {
   }, []);
 
   const isWindows = platform === 'windows';
-  const cmdSymbol = platform === 'macos' ? '⌘' : 'Ctrl';
-  const toggleShortcut = platform === 'macos' ? '⇧⌘T' : '⇧Ctrl+T';
 
   const appWindow = Window.getCurrent();
 
@@ -21,31 +19,28 @@ function App() {
       {isWindows ? (
         // @ts-ignore
         <div className="titlebar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px', height: '32px', '-webkit-app-region': 'drag' }}>
-          <div className="window-title">bewindow</div>
+          <div className="window-title">doPOP</div>
           {/* @ts-ignore */}
-          <div style={{ display: 'flex', gap: '4px', '-webkit-app-region': 'no-drag' }}>
-            <button onClick={() => appWindow.minimize()} style={{ minWidth: '32px' }}>_</button>
-            <button onClick={() => appWindow.toggleMaximize()} style={{ minWidth: '32px' }}>□</button>
-            <button onClick={() => appWindow.close()} style={{ minWidth: '32px' }}>X</button>
+          <div style={{ display: 'flex', gap: '1px', '-webkit-app-region': 'no-drag' }}>
+            <button onClick={() => appWindow.minimize()} style={{ minWidth: '28px' }}><span>–</span></button>
+            <button onClick={() => appWindow.toggleMaximize()} style={{ minWidth: '28px' }}>+</button>
+            <button onClick={() => appWindow.close()} style={{ minWidth: '28px' }}>×</button>
           </div>
         </div>
       ) : (
         <div className="titlebar" data-tauri-drag-region>
-          <div className="window-title">bewindow</div>
+          <div className="window-title">doPOP</div>
         </div>
       )}
 
       <div className="window-content">
-        <h1>Hello World</h1>
-        <p>Native Interface</p>
+        <h1>Bem-vindo(a)!</h1>
+        <p>Gerador de Processos Operacionais Padrão</p>
       </div>
 
       <footer className="macos-footer">
-        <div className="footer-left">
-          made by bero ☕️
-        </div>
-        <div className="footer-right">
-          {toggleShortcut} Toggle window
+        <div className="footer-middle">
+          © Novo Mix Supermercados. Todos os direitos reservados.
         </div>
       </footer>
     </div>

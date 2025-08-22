@@ -1,7 +1,6 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use tauri::Manager;
 use tauri_plugin_global_shortcut::ShortcutState;
 
@@ -44,30 +43,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();
             
+            // IMPORTANTE: Remover essa linha que estava causando o fundo branco
+            // window.set_background_color(None).unwrap();
+            
             #[cfg(target_os = "macos")]
             {
                 use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
                 
-                // Apply native macOS vibrancy effect with Menu material and custom radius
+                // OPÇÃO 1: Sempre manter ativo (mesmo quando perde foco)
                 apply_vibrancy(
                     &window,
                     NSVisualEffectMaterial::Menu,
-                    Some(NSVisualEffectState::Active),
+                    Some(NSVisualEffectState::Active), // Sempre Active = sempre mesmo visual
                     Some(6.0)
                 ).expect("Unsupported platform! 'apply_vibrancy' is only supported on macOS");
+                
+                // OPÇÃO 2: Se quiser que mude quando perde foco, use:
+                // Some(NSVisualEffectState::FollowsWindowActiveState)
+                
+                // MATERIAIS DISPONÍVEIS para testar:
+                // NSVisualEffectMaterial::Menu (atual - bom balance)
+                // NSVisualEffectMaterial::Popover (mais transparente)
+                // NSVisualEffectMaterial::Sidebar (menos transparente)
+                // NSVisualEffectMaterial::HeaderView (muito transparente)
             }
             
             #[cfg(target_os = "windows")]
             {
                 use window_vibrancy::apply_acrylic;
-                apply_acrylic(&window, Some((0x00, 0x00, 0x00, 0x80)))
+                apply_acrylic(&window, Some((18, 18, 18, 125))) // Cinza escuro semi-transparente
                     .expect("Acrylic not supported on this Windows version");
             }
 
             #[cfg(target_os = "linux")]
             {
                 use window_vibrancy::apply_blur;
-                apply_blur(&window, Some((0, 0, 0, 128)))
+                apply_blur(&window, Some((18, 18, 18, 125))) // Cinza escuro semi-transparente
                     .expect("Blur not supported on this Linux version");
             }
             
