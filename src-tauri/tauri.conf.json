@@ -12,6 +12,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
+        "label": "main",
         "fullscreen": false,
         "resizable": true,
         "title": "do-pop",
@@ -44,13 +45,5 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
-  },
-  "plugins": {
-    "fs": {
-      "scope": [
-        "C:/Users/ymuri/OneDrive/Área de Trabalho/do-pop/**",
-        "$PICTURE/**"
-      ]
-    }
   }
 }

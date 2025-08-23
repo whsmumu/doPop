@@ -3,8 +3,8 @@ import './App.css';
 import { invoke } from '@tauri-apps/api/core';
 import { Window } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
-import { homeDir, pictureDir } from '@tauri-apps/api/path';
-import { readTextFile, writeTextFile, writeFile, exists, mkdir } from '@tauri-apps/plugin-fs';
+import { homeDir, pictureDir, desktopDir, documentDir } from '@tauri-apps/api/path';
+import { readTextFile, writeTextFile, writeFile, exists, mkdir, readFile } from '@tauri-apps/plugin-fs';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -28,9 +28,6 @@ type PopData = {
 };
 
 function App() {
-  const SAVE_PDF = 'C:/Users/ymuri/OneDrive/Área de Trabalho/do-pop';
-  const SAVE_JSON = 'C:/Users/ymuri/OneDrive/Área de Trabalho/do-pop/json';
-
   const [platform, setPlatform] = useState('');
   const [currentPage, setCurrentPage] = useState('welcome');
 
@@ -61,7 +58,6 @@ function App() {
   // --- Funções de Navegação ---
   const goToWelcome = () => {
     setCurrentPage('welcome');
-    // Reset save status when going to welcome
     setSaveStatus(null);
     setErrorMessage('');
   };
@@ -123,13 +119,21 @@ function App() {
   const handleSaveJson = async (popData: PopData) => {
     try {
       const fileName = `${popData.title.replace(/[\s/\\?%*:|"<>]/g, '_')}.json`;
-      const filePath = `${SAVE_JSON}/${fileName}`;
-
-      // Cria a pasta se ela não existir
-      if (!(await exists(SAVE_JSON))) {
-        await mkdir(SAVE_JSON, { recursive: true });
+      
+      // Usar diretório de documentos do usuário
+      const documentsPath = await documentDir();
+      const doPopFolder = `${documentsPath}/do-pop`;
+      const jsonFolder = `${doPopFolder}/json`;
+      
+      // Criar as pastas se não existirem
+      if (!(await exists(doPopFolder))) {
+        await mkdir(doPopFolder, { recursive: true });
       }
-
+      if (!(await exists(jsonFolder))) {
+        await mkdir(jsonFolder, { recursive: true });
+      }
+      
+      const filePath = `${jsonFolder}/${fileName}`;
       await writeTextFile(filePath, JSON.stringify(popData, null, 2));
       console.log(`JSON salvo em: ${filePath}`);
     } catch (error) {
@@ -192,12 +196,78 @@ function App() {
 
       pdfContent.innerHTML = '';
 
+      // Função para converter imagem em base64
+      const imageToBase64 = async (imagePath: string): Promise<string> => {
+        try {
+          // Ler o arquivo de imagem usando a API do Tauri
+          const imageData = await readFile(imagePath);
+          
+          // Converter Uint8Array para base64
+          let binary = '';
+          const len = imageData.byteLength;
+          for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(imageData[i]);
+          }
+          const base64 = btoa(binary);
+          
+          // Determinar o tipo MIME baseado na extensão
+          const extension = imagePath.split('.').pop()?.toLowerCase();
+          let mimeType = 'image/jpeg';
+          if (extension === 'png') mimeType = 'image/png';
+          if (extension === 'jpg' || extension === 'jpeg') mimeType = 'image/jpeg';
+          
+          return `data:${mimeType};base64,${base64}`;
+        } catch (error) {
+          console.error('Erro ao converter imagem:', error);
+          return '';
+        }
+      };
+
+      // Processar imagens dos passos
+      const processedSteps = await Promise.all(
+        popData.steps.map(async (step) => {
+          let imageBase64 = '';
+          if (step.image) {
+            imageBase64 = await imageToBase64(step.image);
+          }
+          return { ...step, imageBase64 };
+        })
+      );
+
       const content = `
         <div style="font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; background: white; color: black;">
-          <!-- Cabeçalho -->
-          <div style="text-align: center; margin-bottom: 40px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+          <!-- Cabeçalho Principal -->
+          <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
             <h1 style="color: #333; margin: 0; font-size: 24px; font-weight: bold;">PROCEDIMENTO OPERACIONAL PADRÃO</h1>
             <p style="color: #666; margin: 10px 0 0 0; font-size: 14px;">Setor: ${popData.sector}</p>
+          </div>
+
+          <!-- Informações de Certificação no Cabeçalho -->
+          <div style="margin-bottom: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e9ecef;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+              <div>
+                <strong style="color: #333; font-size: 13px;">Elaborado por:</strong>
+                <p style="margin: 3px 0 0 0; color: #555; font-size: 14px;">${popData.author}</p>
+              </div>
+              <div>
+                <strong style="color: #333; font-size: 13px;">Revisado por:</strong>
+                <p style="margin: 3px 0 0 0; color: #555; font-size: 14px;">${popData.reviewer}</p>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+              <div>
+                <strong style="color: #333; font-size: 13px;">Versão:</strong>
+                <p style="margin: 3px 0 0 0; color: #555; font-size: 14px;">${popData.version}</p>
+              </div>
+              <div>
+                <strong style="color: #333; font-size: 13px;">Data de Criação:</strong>
+                <p style="margin: 3px 0 0 0; color: #555; font-size: 14px;">${new Date(popData.createdAt).toLocaleDateString('pt-BR')}</p>
+              </div>
+              <div>
+                <strong style="color: #333; font-size: 13px;">Última Atualização:</strong>
+                <p style="margin: 3px 0 0 0; color: #555; font-size: 14px;">${new Date(popData.lastUpdated).toLocaleDateString('pt-BR')}</p>
+              </div>
+            </div>
           </div>
 
           <!-- Informações do POP -->
@@ -212,48 +282,24 @@ function App() {
           <!-- Passos -->
           <div style="margin-bottom: 40px;">
             <h3 style="color: #333; font-size: 18px; margin-bottom: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Passo a Passo:</h3>
-            ${popData.steps.map((step, index) => `
-              <div style="margin-bottom: 25px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa;">
-                <div style="display: flex; align-items: flex-start; gap: 15px;">
+            ${processedSteps.map((step, index) => `
+              <div style="margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; page-break-inside: avoid;">
+                <div style="display: flex; align-items: flex-start; gap: 15px; margin-bottom: ${step.imageBase64 ? '15px' : '0'};">
                   <div style="background: #4966c6; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0;">
                     ${index + 1}
                   </div>
                   <div style="flex: 1;">
                     <p style="color: #333; line-height: 1.6; margin: 0; font-size: 14px;">${step.description}</p>
-                    ${step.image ? `<p style="color: #666; font-size: 12px; margin-top: 10px; font-style: italic;">📎 Imagem anexada: ${step.image.split(/[\\/]/).pop()}</p>` : ''}
                   </div>
                 </div>
+                ${step.imageBase64 ? `
+                  <div style="margin-top: 15px; text-align: center;">
+                    <img src="${step.imageBase64}" style="max-width: 100%; max-height: 400px; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
+                    <p style="color: #666; font-size: 11px; margin-top: 5px; font-style: italic;">Figura ${index + 1}: ${step.image ? step.image.split(/[\\/]/).pop() : ''}</p>
+                  </div>
+                ` : ''}
               </div>
             `).join('')}
-          </div>
-
-          <!-- Informações de Certificação -->
-          <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #333;">
-            <h3 style="color: #333; font-size: 16px; margin-bottom: 15px;">Informações de Certificação:</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-              <div>
-                <strong style="color: #333;">Elaborado por:</strong>
-                <p style="margin: 5px 0; color: #555; font-size: 14px;">${popData.author}</p>
-              </div>
-              <div>
-                <strong style="color: #333;">Revisado por:</strong>
-                <p style="margin: 5px 0; color: #555; font-size: 14px;">${popData.reviewer}</p>
-              </div>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
-              <div>
-                <strong style="color: #333;">Versão:</strong>
-                <p style="margin: 5px 0; color: #555; font-size: 14px;">${popData.version}</p>
-              </div>
-              <div>
-                <strong style="color: #333;">Data de Criação:</strong>
-                <p style="margin: 5px 0; color: #555; font-size: 14px;">${new Date(popData.createdAt).toLocaleDateString('pt-BR')}</p>
-              </div>
-              <div>
-                <strong style="color: #333;">Última Atualização:</strong>
-                <p style="margin: 5px 0; color: #555; font-size: 14px;">${new Date(popData.lastUpdated).toLocaleDateString('pt-BR')}</p>
-              </div>
-            </div>
           </div>
 
           <!-- Rodapé -->
@@ -266,13 +312,36 @@ function App() {
       pdfContent.innerHTML = content;
       pdfContent.style.display = 'block';
 
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Aguardar as imagens carregarem
+      const images = pdfContent.getElementsByTagName('img');
+      if (images.length > 0) {
+        await Promise.all(
+          Array.from(images).map(img => {
+            return new Promise((resolve) => {
+              if (img.complete) {
+                resolve(true);
+              } else {
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(true);
+              }
+            });
+          })
+        );
+        
+        // Aguardar um pouco mais para garantir que tudo foi renderizado
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
 
       const canvas = await html2canvas(pdfContent, {
         backgroundColor: '#ffffff',
-        scale: 2,
+        scale: 1.5,
         useCORS: true,
-        logging: false
+        allowTaint: true,
+        logging: false,
+        scrollX: 0,
+        scrollY: 0,
+        width: pdfContent.scrollWidth,
+        height: pdfContent.scrollHeight
       });
 
       pdfContent.style.display = 'none';
@@ -283,24 +352,60 @@ function App() {
       const canvasWidth = canvas.width;
       const canvasHeight = canvas.height;
 
+      // Calcular dimensões mantendo proporção
       const ratio = Math.min(pdfWidth / (canvasWidth * 0.264583), pdfHeight / (canvasHeight * 0.264583));
       const imgWidth = canvasWidth * 0.264583 * ratio;
       const imgHeight = canvasHeight * 0.264583 * ratio;
 
-      const x = (pdfWidth - imgWidth) / 2;
-      const y = 10;
-
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', x, y, imgWidth, imgHeight);
+      // Se a imagem for muito alta, pode precisar de múltiplas páginas
+      if (imgHeight > pdfHeight) {
+        // Dividir em páginas
+        let remainingHeight = imgHeight;
+        let sourceY = 0;
+        
+        while (remainingHeight > 0) {
+          const pageHeight = Math.min(remainingHeight, pdfHeight - 20);
+          const sourceHeight = pageHeight / ratio / 0.264583;
+          
+          // Criar um canvas temporário para esta página
+          const pageCanvas = document.createElement('canvas');
+          const pageContext = pageCanvas.getContext('2d');
+          pageCanvas.width = canvasWidth;
+          pageCanvas.height = sourceHeight;
+          
+          if (pageContext) {
+            pageContext.drawImage(canvas, 0, sourceY, canvasWidth, sourceHeight, 0, 0, canvasWidth, sourceHeight);
+            pdf.addImage(pageCanvas.toDataURL('image/png'), 'PNG', 10, 10, imgWidth, pageHeight);
+          }
+          
+          remainingHeight -= pageHeight;
+          sourceY += sourceHeight;
+          
+          if (remainingHeight > 0) {
+            pdf.addPage();
+          }
+        }
+      } else {
+        const x = (pdfWidth - imgWidth) / 2;
+        const y = 10;
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', x, y, imgWidth, imgHeight);
+      }
 
       const pdfOutput = pdf.output('arraybuffer');
 
       const fileName = `${popData.title.replace(/[\s/\\?%*:|"<>]/g, '_')}.pdf`;
-      const filePath = `${SAVE_PDF}/${fileName}`;
-
-      if (!(await exists(SAVE_PDF))) {
-        await mkdir(SAVE_PDF, { recursive: true });
+      
+      // Usar diretório de documentos do usuário
+      const documentsPath = await documentDir();
+      const doPopFolder = `${documentsPath}do-pop`;
+      const pdfFolder = `${doPopFolder}/pdf`;
+      
+      // Criar as pastas se não existirem
+      if (!(await exists(pdfFolder))) {
+        await mkdir(pdfFolder, { recursive: true });
       }
-
+      
+      const filePath = `${pdfFolder}/${fileName}`;
       await writeFile(filePath, new Uint8Array(pdfOutput));
       console.log(`PDF salvo em: ${filePath}`);
     } catch (error) {
@@ -318,7 +423,6 @@ function App() {
     try {
       const popData = getFullPopData();
 
-      // Simula um pequeno delay para mostrar o loading
       await new Promise(resolve => setTimeout(resolve, 500));
 
       await handleSaveJson(popData);
@@ -327,7 +431,6 @@ function App() {
       setSaveStatus('success');
       setIsLoading(false);
 
-      // Auto-reset após 3 segundos
       setTimeout(() => {
         resetAllData();
         goToWelcome();
@@ -603,7 +706,7 @@ function App() {
                   marginBottom: '20px'
                 }} />
                 <h1>Salvando procedimento...</h1>
-                <p>Aguarde enquanto geramos o PDF e salvamos os arquivos.</p>
+                <p>Aguarde enquanto salvamos os arquivos no local escolhido.</p>
               </>
             )}
 
@@ -623,8 +726,8 @@ function App() {
                   ✓
                 </div>
                 <h1>Procedimento salvo com sucesso!</h1>
-                <p>O PDF foi salvo em: {SAVE_PDF}</p>
-                <p>O JSON foi salvo em: {SAVE_JSON}</p>
+                <p>PDF salvo em: Documentos/do-pop/pdf/</p>
+                <p>JSON salvo em: Documentos/do-pop/json/</p>
                 <p style={{ marginTop: '20px', fontSize: '12px', opacity: '0.7' }}>
                   Retornando ao início em alguns segundos...
                 </p>

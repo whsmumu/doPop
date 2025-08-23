@@ -6,14 +6,7 @@
     "main"
   ],
   "permissions": [
-    "core:app:default",
-    "core:path:default",
-    "core:menu:default",
-    "core:tray:default",
-    "core:image:default",
-    "core:event:default",
-    "core:window:default",
-    "core:resources:default",
+    "core:default",
     "core:window:allow-close",
     "core:window:allow-center",
     "core:window:allow-minimize",
@@ -27,14 +20,14 @@
     "core:window:allow-hide",
     "core:window:allow-is-visible",
     "opener:default",
-    "global-shortcut:allow-is-registered",
-    "global-shortcut:allow-register",
-    "global-shortcut:allow-register-all",
-    "global-shortcut:allow-unregister",
-    "global-shortcut:allow-unregister-all",
+    "global-shortcut:default",
     "dialog:default",
-    "dialog:allow-open",
     "fs:default",
-    "fs:allow-read-file"
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-write-file",
+    "fs:allow-exists",
+    "fs:allow-create",
+    "fs:allow-mkdir"
   ]
 }
