@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Window } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
 import { homeDir, pictureDir } from '@tauri-apps/api/path';
-import { readTextFile, writeTextFile, writeFile, create, exists } from '@tauri-apps/plugin-fs';
+import { readTextFile, writeTextFile, writeFile, exists, mkdir } from '@tauri-apps/plugin-fs';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -27,12 +27,9 @@ type PopData = {
   lastUpdated: string;
 };
 
-
 function App() {
-
-
-  const SAVE_PDF = 'C:\Users\ymuri\OneDrive\Área de Trabalho\do-pop';
-  const SAVE_JSON = 'C:\Users\ymuri\OneDrive\Área de Trabalho\do-pop\json';
+  const SAVE_PDF = 'C:/Users/ymuri/OneDrive/Área de Trabalho/do-pop';
+  const SAVE_JSON = 'C:/Users/ymuri/OneDrive/Área de Trabalho/do-pop/json';
 
   const [platform, setPlatform] = useState('');
   const [currentPage, setCurrentPage] = useState('welcome');
@@ -49,6 +46,11 @@ function App() {
   const [version, setVersion] = useState('');
   const [createdAt, setCreatedAt] = useState<string | null>(null);
 
+  // Estados para a tela de salvamento
+  const [isLoading, setIsLoading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'loading' | 'success' | 'error' | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+
   useEffect(() => {
     invoke('get_platform').then((p: unknown) => setPlatform(p as string));
   }, []);
@@ -57,13 +59,18 @@ function App() {
   const appWindow = Window.getCurrent();
 
   // --- Funções de Navegação ---
-  const goToWelcome = () => setCurrentPage('welcome');
+  const goToWelcome = () => {
+    setCurrentPage('welcome');
+    // Reset save status when going to welcome
+    setSaveStatus(null);
+    setErrorMessage('');
+  };
+
   const goToAbout = () => setCurrentPage('about');
-  const goToChoice = () => setCurrentPage('choice'); // NOVO
+  const goToChoice = () => setCurrentPage('choice');
   const goToEdit = () => setCurrentPage('edit');
 
   const goToSector = () => {
-    // Define a data de criação apenas se estiver criando um novo POP
     if (!createdAt) {
       setCreatedAt(new Date().toISOString());
     }
@@ -78,6 +85,7 @@ function App() {
   const goBackToPopDetails = () => setCurrentPage('popDetails');
   const goToCertification = () => setCurrentPage('certification');
   const goBackToSteps = () => setCurrentPage('steps');
+  const goToSaving = () => setCurrentPage('saving');
 
   // --- Manipuladores de Dados ---
   const handleSectorChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -115,23 +123,20 @@ function App() {
   const handleSaveJson = async (popData: PopData) => {
     try {
       const fileName = `${popData.title.replace(/[\s/\\?%*:|"<>]/g, '_')}.json`;
-      const filePath = `${SAVE_JSON}\\${fileName}`;
+      const filePath = `${SAVE_JSON}/${fileName}`;
 
       // Cria a pasta se ela não existir
       if (!(await exists(SAVE_JSON))) {
-        await create(SAVE_JSON);
+        await mkdir(SAVE_JSON, { recursive: true });
       }
-      
+
       await writeTextFile(filePath, JSON.stringify(popData, null, 2));
       console.log(`JSON salvo em: ${filePath}`);
     } catch (error) {
       console.error("Erro ao salvar o arquivo JSON:", error);
-      alert('Ocorreu um erro ao salvar o arquivo JSON.');
+      throw error;
     }
   };
-
-
-
 
   const handleJsonFileSelect = async () => {
     try {
@@ -151,90 +156,188 @@ function App() {
           setPopTitle(data.title);
           setPopDescription(data.description);
           setSteps(data.steps);
-          // Campos da tela de certificação
           setAuthor(data.author || '');
           setReviewer(data.reviewer || '');
           setVersion(data.version || '');
-          // Preserva a data de criação original do arquivo
           setCreatedAt(data.createdAt || new Date().toISOString());
 
           goToSector();
         } else {
-          alert("Arquivo JSON inválido ou com formato incorreto.");
+          setErrorMessage("Arquivo JSON inválido ou com formato incorreto.");
+          setSaveStatus('error');
         }
       }
     } catch (error) {
       console.error("Erro ao ler ou processar o arquivo JSON:", error);
-      alert("Não foi possível carregar o arquivo. Verifique se é um JSON válido.");
+      setErrorMessage("Não foi possível carregar o arquivo. Verifique se é um JSON válido.");
+      setSaveStatus('error');
     }
   };
 
-  const sendDataToBackend = async (popData: PopData) => {
-    console.log("Enviando para o backend:", JSON.stringify(popData, null, 2));
+  const resetAllData = () => {
+    setSelectedSector('');
+    setPopTitle('');
+    setPopDescription('');
+    setSteps([{ id: Date.now(), description: '', image: null }]);
+    setAuthor('');
+    setReviewer('');
+    setVersion('');
+    setCreatedAt(null);
+  };
+
+  const handleGeneratePdf = async (popData: PopData) => {
     try {
-      const response = await fetch('https://SUA_URL_DE_BACKEND/api/pops', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(popData),
+      const pdfContent = document.getElementById('pdf-content');
+      if (!pdfContent) throw new Error('Elemento PDF não encontrado.');
+
+      pdfContent.innerHTML = '';
+
+      const content = `
+        <div style="font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; background: white; color: black;">
+          <!-- Cabeçalho -->
+          <div style="text-align: center; margin-bottom: 40px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+            <h1 style="color: #333; margin: 0; font-size: 24px; font-weight: bold;">PROCEDIMENTO OPERACIONAL PADRÃO</h1>
+            <p style="color: #666; margin: 10px 0 0 0; font-size: 14px;">Setor: ${popData.sector}</p>
+          </div>
+
+          <!-- Informações do POP -->
+          <div style="margin-bottom: 30px;">
+            <h2 style="color: #333; font-size: 20px; margin-bottom: 10px;">${popData.title}</h2>
+            <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+              <h3 style="color: #333; font-size: 16px; margin-bottom: 10px;">Descrição:</h3>
+              <p style="color: #555; line-height: 1.6; margin: 0; font-size: 14px;">${popData.description}</p>
+            </div>
+          </div>
+
+          <!-- Passos -->
+          <div style="margin-bottom: 40px;">
+            <h3 style="color: #333; font-size: 18px; margin-bottom: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Passo a Passo:</h3>
+            ${popData.steps.map((step, index) => `
+              <div style="margin-bottom: 25px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa;">
+                <div style="display: flex; align-items: flex-start; gap: 15px;">
+                  <div style="background: #4966c6; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0;">
+                    ${index + 1}
+                  </div>
+                  <div style="flex: 1;">
+                    <p style="color: #333; line-height: 1.6; margin: 0; font-size: 14px;">${step.description}</p>
+                    ${step.image ? `<p style="color: #666; font-size: 12px; margin-top: 10px; font-style: italic;">📎 Imagem anexada: ${step.image.split(/[\\/]/).pop()}</p>` : ''}
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Informações de Certificação -->
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #333;">
+            <h3 style="color: #333; font-size: 16px; margin-bottom: 15px;">Informações de Certificação:</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+              <div>
+                <strong style="color: #333;">Elaborado por:</strong>
+                <p style="margin: 5px 0; color: #555; font-size: 14px;">${popData.author}</p>
+              </div>
+              <div>
+                <strong style="color: #333;">Revisado por:</strong>
+                <p style="margin: 5px 0; color: #555; font-size: 14px;">${popData.reviewer}</p>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+              <div>
+                <strong style="color: #333;">Versão:</strong>
+                <p style="margin: 5px 0; color: #555; font-size: 14px;">${popData.version}</p>
+              </div>
+              <div>
+                <strong style="color: #333;">Data de Criação:</strong>
+                <p style="margin: 5px 0; color: #555; font-size: 14px;">${new Date(popData.createdAt).toLocaleDateString('pt-BR')}</p>
+              </div>
+              <div>
+                <strong style="color: #333;">Última Atualização:</strong>
+                <p style="margin: 5px 0; color: #555; font-size: 14px;">${new Date(popData.lastUpdated).toLocaleDateString('pt-BR')}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rodapé -->
+          <div style="margin-top: 40px; text-align: center; padding-top: 20px; border-top: 1px solid #ddd;">
+            <p style="color: #666; font-size: 12px; margin: 0;">© Novo Mix Supermercados. Todos os direitos reservados.</p>
+          </div>
+        </div>
+      `;
+
+      pdfContent.innerHTML = content;
+      pdfContent.style.display = 'block';
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const canvas = await html2canvas(pdfContent, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        logging: false
       });
 
-      if (!response.ok) throw new Error(`Erro na rede: ${response.statusText}`);
-
-      const result = await response.json();
-      console.log('Resposta do backend:', result);
-
-    } catch (error) {
-      console.error("Erro ao enviar para o backend:", error);
-      alert('Erro ao salvar os dados no servidor.');
-    }
-  };
-
-   const handleFinalSubmit = async () => {
-    const popData = getFullPopData();
-
-    // Salva ambos os arquivos nos caminhos definidos
-    await handleSaveJson(popData);
-    await handleGeneratePdf(popData);
-
-    //await sendDataToBackend(popData);
-
-    alert('Procedimento salvo com sucesso na pasta');
-    
-    // Resetar estado e voltar para o início
-    goToWelcome();
-  };
-
-
-   const handleGeneratePdf = async (popData: PopData) => {
-    try {
-      const input = document.getElementById('pdf-content-wrapper');
-      if (!input) throw new Error('Elemento para gerar o PDF não encontrado.');
-
-      input.style.display = 'block';
-      const canvas = await html2canvas(input);
-      input.style.display = 'none';
+      pdfContent.style.display = 'none';
 
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pdfWidth, pdfHeight);
-      
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+
+      const ratio = Math.min(pdfWidth / (canvasWidth * 0.264583), pdfHeight / (canvasHeight * 0.264583));
+      const imgWidth = canvasWidth * 0.264583 * ratio;
+      const imgHeight = canvasHeight * 0.264583 * ratio;
+
+      const x = (pdfWidth - imgWidth) / 2;
+      const y = 10;
+
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', x, y, imgWidth, imgHeight);
+
       const pdfOutput = pdf.output('arraybuffer');
 
       const fileName = `${popData.title.replace(/[\s/\\?%*:|"<>]/g, '_')}.pdf`;
-      const filePath = `${SAVE_PDF}\\${fileName}`;
+      const filePath = `${SAVE_PDF}/${fileName}`;
 
-      // Cria a pasta se ela não existir
       if (!(await exists(SAVE_PDF))) {
-        await create(SAVE_PDF);
+        await mkdir(SAVE_PDF, { recursive: true });
       }
 
       await writeFile(filePath, new Uint8Array(pdfOutput));
       console.log(`PDF salvo em: ${filePath}`);
     } catch (error) {
       console.error("Erro ao gerar ou salvar o PDF:", error);
-      alert('Ocorreu um erro ao gerar o PDF.');
+      throw error;
+    }
+  };
+
+  const handleFinalSubmit = async () => {
+    goToSaving();
+    setIsLoading(true);
+    setSaveStatus('loading');
+    setErrorMessage('');
+
+    try {
+      const popData = getFullPopData();
+
+      // Simula um pequeno delay para mostrar o loading
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      await handleSaveJson(popData);
+      await handleGeneratePdf(popData);
+
+      setSaveStatus('success');
+      setIsLoading(false);
+
+      // Auto-reset após 3 segundos
+      setTimeout(() => {
+        resetAllData();
+        goToWelcome();
+      }, 3000);
+
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      setErrorMessage(`Erro ao salvar os arquivos: ${error}`);
+      setSaveStatus('error');
+      setIsLoading(false);
     }
   };
 
@@ -253,19 +356,6 @@ function App() {
       console.error("Erro ao abrir o seletor de arquivos:", error);
     }
   };
-
-  // Função para enviar todos os dados para o backend (simulação)
-  const handleSubmitPop = () => {
-    const popData = {
-      sector: selectedSector,
-      title: popTitle,
-      description: popDescription,
-      steps: steps
-    };
-    console.log("Enviando para o backend:", popData);
-    // invoke('sua_funcao_backend', { data: popData });
-  };
-
 
   const setores = ["Administrativo", "Comercial", "Fiscal", "Financeiro", "TI", "RH", "Logística", "Controles Internos", "Manutenção"];
 
@@ -287,7 +377,7 @@ function App() {
       )}
 
       <div className="window-content">
-        {/* Página 1: Boas-Vindas (Inalterada) */}
+        {/* Página 1: Boas-Vindas */}
         <div className={`page ${currentPage !== 'welcome' ? 'hidden' : ''}`}>
           <div className="page-content">
             <h1>Bem-vindo(a) ao <strong>do-pop!</strong></h1>
@@ -306,13 +396,11 @@ function App() {
           </div>
           <div className="button-group">
             <button className="button-voltar" onClick={goToWelcome}>Voltar</button>
-            {/* CORREÇÃO: Mudar para goToChoice */}
             <button className="button-iniciar" onClick={goToChoice}>Iniciar</button>
           </div>
         </div>
 
-
-        {/* --- NOVA PÁGINA 3.5: Escolha de Ação --- */}
+        {/* Página 3: Escolha de Ação */}
         <div className={`page ${currentPage !== 'choice' ? 'hidden' : ''}`}>
           <div className="page-content">
             <h1>Escolha uma opção:</h1>
@@ -322,28 +410,31 @@ function App() {
             <button className="button-voltar" onClick={goBackToAbout}>Voltar</button>
             <button className="button-iniciar" onClick={goToSector}>Criar</button>
             <button className="button-iniciar" onClick={goToEdit}>Editar</button>
-
           </div>
         </div>
 
-        {/* --- NOVA PÁGINA 3.5.2: Edição de POP --- */}
+        {/* Página 4: Edição de POP */}
         <div className={`page ${currentPage !== 'edit' ? 'hidden' : ''}`}>
           <div className="page-content">
             <h1>Selecione um arquivo para editar:</h1>
             <p>O arquivo deve ser do tipo "json"</p>
-            {/* Estilo adicionado no App.css */}
             <div className="file-select-container">
               <button className="button-select-file" onClick={handleJsonFileSelect}>
                 Clique para selecionar um arquivo
               </button>
             </div>
+            {saveStatus === 'error' && (
+              <div style={{ marginTop: '20px', padding: '15px', backgroundColor: 'rgba(255, 85, 85, 0.1)', border: '1px solid rgba(255, 85, 85, 0.3)', borderRadius: '8px' }}>
+                <p style={{ color: 'rgba(255, 138, 138, 0.9)', margin: '0', fontSize: '14px' }}>{errorMessage}</p>
+              </div>
+            )}
           </div>
           <div className="button-group">
             <button className="button-voltar-352" onClick={goBackToChoice}>Voltar</button>
           </div>
         </div>
 
-        {/* Página 3: Seleção de Setor (Inalterada) */}
+        {/* Página 5: Seleção de Setor */}
         <div className={`page ${currentPage !== 'sector' ? 'hidden' : ''}`}>
           <div className="page-content">
             <h1>Qual o seu setor?</h1>
@@ -368,15 +459,12 @@ function App() {
           </div>
         </div>
 
-        {/* Página 4: Detalhes do POP (Layout com Rolagem) */}
+        {/* Página 6: Detalhes do POP */}
         <div className={`page ${currentPage !== 'popDetails' ? 'hidden' : ''}`}>
           <div className="page-content-full-0">
-            {/* Cabeçalho fixo da página de detalhes */}
             <div className="details-header">
               <h1>Defina o título e descrição.</h1>
             </div>
-
-            {/* Container que terá o rolamento */}
             <div className="details-scroll-container">
               <div className="form-container-vertical">
                 <div className="form-group">
@@ -409,21 +497,15 @@ function App() {
           </div>
         </div>
 
-
-
-        {/* Página 5: Passo a Passo (Layout Reformulado) */}
+        {/* Página 7: Passo a Passo */}
         <div className={`page ${currentPage !== 'steps' ? 'hidden' : ''}`}>
-          {/* O page-content agora ocupa toda a altura */}
           <div className="page-content-full">
-            {/* Cabeçalho fixo */}
             <div className="steps-header">
               <h1>Passo a passo</h1>
               <button className="button-add-step" onClick={addStep}>
                 + Adicionar Passo
               </button>
             </div>
-
-            {/* Container com a lista de passos que terá o rolamento */}
             <div className="steps-list-container">
               {steps.map((step, index) => (
                 <div key={step.id} className="step-item">
@@ -440,7 +522,6 @@ function App() {
                         {step.image ? 'Trocar Imagem' : 'Anexar Imagem'}
                       </button>
                       {step.image && <span className="image-name" title={step.image}>{step.image.split(/[\\/]/).pop()}</span>}
-                      {/* Div para empurrar o botão remover para a direita */}
                       <div className="spacer"></div>
                       {steps.length > 1 && (
                         <button className="button-remove" onClick={() => removeStep(step.id)}>Remover</button>
@@ -453,70 +534,157 @@ function App() {
           </div>
           <div className="button-group4">
             <button className="button-voltar" onClick={goBackToPopDetails}>Voltar</button>
-            {/* Agora chama a nova tela de certificação */}
             <button className="button-continuar" onClick={goToCertification}>Finalizar</button>
           </div>
         </div>
-      </div>
 
-
-
-      {/* --- NOVA PÁGINA 6: Certificação --- */}
-      <div className={`page ${currentPage !== 'certification' ? 'hidden' : ''}`}>
-        <div className="page-content-full-0">
-          <div className="details-header">
-            <h1>Certificação</h1>
-          </div>
-          <div className="details-scroll-container">
-            <div className="form-container-vertical">
-              <div className="form-group">
-                <label htmlFor="author-name">Nome de quem fez</label>
-                <input
-                  id="author-name"
-                  type="text"
-                  placeholder="Digite o nome do autor"
-                  className="input-field"
-                  value={author}
-                  onChange={(e) => setAuthor(e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="reviewer-name">Nome de quem revisou</label>
-                <input
-                  id="reviewer-name"
-                  type="text"
-                  placeholder="Digite o nome do revisor"
-                  className="input-field"
-                  value={reviewer}
-                  onChange={(e) => setReviewer(e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="pop-version">Versão</label>
-                <input
-                  id="pop-version"
-                  type="text"
-                  placeholder="Ex: 1.0.0"
-                  className="input-field"
-                  value={version}
-                  onChange={(e) => setVersion(e.target.value)}
-                />
+        {/* Página 8: Autor */}
+        <div className={`page ${currentPage !== 'certification' ? 'hidden' : ''}`}>
+          <div className="page-content-full-0">
+            <div className="details-header">
+              <h1>Digite quem fez / revisou o arquivo:</h1>
+            </div>
+            <div className="details-scroll-container">
+              <div className="form-container-vertical">
+                <div className="form-group">
+                  <label htmlFor="author-name">Nome de quem fez</label>
+                  <input
+                    id="author-name"
+                    type="text"
+                    placeholder="Digite o nome do autor"
+                    className="input-field"
+                    value={author}
+                    onChange={(e) => setAuthor(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="reviewer-name">Nome de quem revisou</label>
+                  <input
+                    id="reviewer-name"
+                    type="text"
+                    placeholder="Digite o nome do revisor"
+                    className="input-field"
+                    value={reviewer}
+                    onChange={(e) => setReviewer(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="pop-version">Versão</label>
+                  <input
+                    id="pop-version"
+                    type="text"
+                    placeholder="Ex: 1.0.0"
+                    className="input-field"
+                    value={version}
+                    onChange={(e) => setVersion(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
           </div>
+          <div className="button-group3">
+            <button className="button-voltar" onClick={goBackToSteps}>Voltar</button>
+            <button className="button-continuar" onClick={handleFinalSubmit} disabled={!author || !reviewer || !version}>Salvar</button>
+          </div>
         </div>
-        <div className="button-group3">
-          <button className="button-voltar" onClick={goBackToSteps}>Voltar</button>
-          <button className="button-continuar" onClick={handleFinalSubmit} disabled={!author || !reviewer || !version}>Salvar</button>
+
+        {/* NOVA Página 9: Tela de Salvamento */}
+        <div className={`page ${currentPage !== 'saving' ? 'hidden' : ''}`}>
+          <div className="page-content">
+            {saveStatus === 'loading' && (
+              <>
+                <div className="loading-spinner" style={{
+                  width: '60px',
+                  height: '60px',
+                  border: '4px solid rgba(255, 255, 255, 0.1)',
+                  borderTop: '4px solid #4966c6',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  marginBottom: '20px'
+                }} />
+                <h1>Salvando procedimento...</h1>
+                <p>Aguarde enquanto geramos o PDF e salvamos os arquivos.</p>
+              </>
+            )}
+
+            {saveStatus === 'success' && (
+              <>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  backgroundColor: '#4CAF50',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '20px',
+                  fontSize: '30px'
+                }}>
+                  ✓
+                </div>
+                <h1>Procedimento salvo com sucesso!</h1>
+                <p>O PDF foi salvo em: {SAVE_PDF}</p>
+                <p>O JSON foi salvo em: {SAVE_JSON}</p>
+                <p style={{ marginTop: '20px', fontSize: '12px', opacity: '0.7' }}>
+                  Retornando ao início em alguns segundos...
+                </p>
+              </>
+            )}
+
+            {saveStatus === 'error' && (
+              <>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  backgroundColor: '#f44336',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '20px',
+                  fontSize: '30px'
+                }}>
+                  ✕
+                </div>
+                <h1>Erro ao salvar</h1>
+                <div style={{
+                  marginTop: '20px',
+                  padding: '15px',
+                  backgroundColor: 'rgba(255, 85, 85, 0.1)',
+                  border: '1px solid rgba(255, 85, 85, 0.3)',
+                  borderRadius: '8px',
+                  maxWidth: '400px'
+                }}>
+                  <p style={{ color: 'rgba(255, 138, 138, 0.9)', margin: '0', fontSize: '14px' }}>
+                    {errorMessage}
+                  </p>
+                </div>
+                <div style={{ marginTop: '30px' }}>
+                  <button className="button-continuar" onClick={goToCertification}>
+                    Tentar Novamente
+                  </button>
+                  <button className="button-voltar" onClick={goToWelcome} style={{ marginLeft: '10px' }}>
+                    Voltar ao Início
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Template invisível para o PDF */}
-      <div id="pdf-content" style={{ display: 'none', padding: '20px' }}>
-        {/* Conteúdo que será renderizado no PDF */}
+      {/* Template para o PDF */}
+      <div id="pdf-content" style={{
+        display: 'none',
+        position: 'absolute',
+        top: '-9999px',
+        left: '-9999px',
+        width: '210mm',
+        minHeight: '297mm',
+        backgroundColor: 'white'
+      }}>
+        {/* Conteúdo será inserido dinamicamente pelo JavaScript */}
       </div>
-
-
 
       <footer className="macos-footer">
         <div className="footer-middle">

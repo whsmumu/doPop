@@ -749,4 +749,18 @@ button:disabled {
     color: rgba(255, 255, 255, 1);
     border-color: rgba(255, 255, 255, 0.25);
 }
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Estilos para a página de salvamento */
+.page .loading-spinner {
+  margin: 0 auto;
+}
 }

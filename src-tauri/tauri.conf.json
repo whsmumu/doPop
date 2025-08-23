@@ -34,7 +34,6 @@
       "csp": null
     }
   },
-  
   "bundle": {
     "active": true,
     "targets": "all",
@@ -45,5 +44,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "fs": {
+      "scope": [
+        "C:/Users/ymuri/OneDrive/Área de Trabalho/do-pop/**",
+        "$PICTURE/**"
+      ]
+    }
   }
 }
