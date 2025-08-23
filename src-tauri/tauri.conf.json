@@ -44,13 +44,5 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
-  },
-
-  "plugins": {
-    "dialog": {
-      "scope": [
-        "$PICTURE/**"
-      ]
-    }
   }
 }

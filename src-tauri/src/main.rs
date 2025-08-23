@@ -14,10 +14,14 @@ fn get_platform() -> String {
     std::env::consts::OS.to_string()
 }
 
+// ... outras importações
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())  // <<< ADICIONE ESTA LINHA AQUI
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_shortcut("Shift+CmdOrCtrl+T")?
@@ -39,6 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 })
                 .build(),
         )
+        // ... resto do arquivo
         .invoke_handler(tauri::generate_handler![greet, get_platform])
         .setup(|app| {
             let window = app.get_webview_window("main").unwrap();

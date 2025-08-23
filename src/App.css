@@ -187,6 +187,7 @@ button {
     font-size: 14px;
 }
 
+
 .button-group {
     position: absolute;
     bottom: 180px;
@@ -211,11 +212,28 @@ button {
 }
 
 .button-group4{
-     position: absolute;
+    position: absolute;
     bottom: 30px;
     right: 38.8%;
     display: flex;
     gap: 10px; /* espaço entre os botões */
+}
+
+.button-voltar-352{
+    position: relative;
+    bottom: -80px;
+    padding: 8px 24px;
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: rgba(255, 255, 255, 0.848);
+    font-weight: 500;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+}
+
+.button-voltar-352:hover{
+    background-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
 }
 
 .button-avancar {
@@ -703,4 +721,32 @@ button:disabled {
     text-overflow: ellipsis;
 }
 
+
+/* --- ESTILOS PARA A PÁGINA DE EDIÇÃO (NOVA) --- */
+.file-select-container {
+    margin-top: 2rem;
+    padding: 2rem;
+    border: 2px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 400px;
+    max-width: 90%;
+}
+
+.button-select-file {
+    padding: 12px 28px;
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.848);
+    font-weight: 500;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.button-select-file:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 1);
+    border-color: rgba(255, 255, 255, 0.25);
+}
 }

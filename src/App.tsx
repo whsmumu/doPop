@@ -3,7 +3,8 @@ import './App.css';
 import { invoke } from '@tauri-apps/api/core';
 import { Window } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
-import { pictureDir } from '@tauri-apps/api/path';
+import { homeDir, pictureDir } from '@tauri-apps/api/path';
+import { readTextFile } from '@tauri-apps/plugin-fs';
 
 // Definição do tipo para um passo do POP
 type Step = {
@@ -11,6 +12,14 @@ type Step = {
   description: string;
   image: string | null;
 };
+
+type PopData = {
+  sector: string;
+  title: string;
+  description: string;
+  steps: Step[];
+};
+
 
 function App() {
   const [platform, setPlatform] = useState('');
@@ -34,10 +43,13 @@ function App() {
   // --- Funções de Navegação ---
   const goToWelcome = () => setCurrentPage('welcome');
   const goToAbout = () => setCurrentPage('about');
+  const goToChoice = () => setCurrentPage('choice'); // NOVO
+  const goToEdit = () => setCurrentPage('edit');
   const goToSector = () => setCurrentPage('sector');
   const goToPopDetails = () => setCurrentPage('popDetails');
   const goToSteps = () => setCurrentPage('steps');
   const goBackToAbout = () => setCurrentPage('about');
+  const goBackToChoice = () => setCurrentPage('choice');
   const goBackToSector = () => setCurrentPage('sector');
   const goBackToPopDetails = () => setCurrentPage('popDetails');
 
@@ -62,24 +74,60 @@ function App() {
     ));
   };
 
-   const handleStepImageChange = async (id: number) => {
-    try { // <-- Inicia o bloco try
-      // Pega o caminho para a pasta de imagens do sistema operacional
+  const handleJsonFileSelect = async () => {
+    try {
+      const homePath = await homeDir();
+      const selectedPath = await open({
+        multiple: false,
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+        defaultPath: homePath,
+      });
+
+      if (typeof selectedPath === 'string') {
+        const fileContents = await readTextFile(selectedPath);
+        const data: PopData = JSON.parse(fileContents);
+
+        // Validação básica dos dados carregados
+        if (data.sector && data.title && data.description && Array.isArray(data.steps)) {
+          // Preenche todos os estados da aplicação com os dados do arquivo
+          setSelectedSector(data.sector);
+          setPopTitle(data.title);
+          setPopDescription(data.description);
+          setSteps(data.steps);
+
+          // Navega para a primeira tela do fluxo para começar a edição
+          goToSector();
+        } else {
+          // A função `alert` virá do plugin de diálogo, que já está configurado
+          alert("Arquivo JSON inválido ou com formato incorreto.");
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao ler ou processar o arquivo JSON:", error);
+      alert("Não foi possível carregar o arquivo. Verifique se é um JSON válido.");
+    }
+  };
+
+  const handleStepImageChange = async (id: number) => {
+    try {
+      // 1. Pega o caminho para a pasta de imagens do sistema
       const picturePath = await pictureDir();
 
+      // 2. Abre a janela de seleção de arquivo
       const selectedPath = await open({
         multiple: false,
         filters: [{ name: 'Image', extensions: ['png', 'jpeg', 'jpg'] }],
-        // Define o caminho inicial para a pasta de imagens
+        // 3. Define o caminho inicial para a pasta de imagens
         defaultPath: picturePath,
       });
 
+      // 4. Atualiza o estado com a imagem selecionada
       if (typeof selectedPath === 'string') {
         setSteps(steps.map(step =>
           step.id === id ? { ...step, image: selectedPath } : step
         ));
       }
-    } catch (error) { // <-- Captura qualquer erro que acontecer
+    } catch (error) {
       console.error("Erro ao abrir o seletor de arquivos:", error);
     }
   };
@@ -126,7 +174,7 @@ function App() {
           <button className="button-avancar" onClick={goToAbout}>Avançar</button>
         </div>
 
-        {/* Página 2: Explicação (Inalterada) */}
+        {/* Página 2: Explicação */}
         <div className={`page ${currentPage !== 'about' ? 'hidden' : ''}`}>
           <div className="page-content">
             <h1>Como funciona?</h1>
@@ -136,7 +184,40 @@ function App() {
           </div>
           <div className="button-group">
             <button className="button-voltar" onClick={goToWelcome}>Voltar</button>
-            <button className="button-iniciar" onClick={goToSector}>Iniciar</button>
+            {/* CORREÇÃO: Mudar para goToChoice */}
+            <button className="button-iniciar" onClick={goToChoice}>Iniciar</button>
+          </div>
+        </div>
+
+
+        {/* --- NOVA PÁGINA 3.5: Escolha de Ação --- */}
+        <div className={`page ${currentPage !== 'choice' ? 'hidden' : ''}`}>
+          <div className="page-content">
+            <h1>Escolha uma opção:</h1>
+            <p>Crie um novo procedimento operacional padrão <p>ou então edite um procedimento já existente.</p></p>
+          </div>
+          <div className="button-group">
+            <button className="button-voltar" onClick={goBackToAbout}>Voltar</button>
+            <button className="button-iniciar" onClick={goToSector}>Criar</button>
+            <button className="button-iniciar" onClick={goToEdit}>Editar</button>
+            
+          </div>
+        </div>
+
+        {/* --- NOVA PÁGINA 3.5.2: Edição de POP --- */}
+        <div className={`page ${currentPage !== 'edit' ? 'hidden' : ''}`}>
+          <div className="page-content">
+            <h1>Selecione um arquivo para editar:</h1>
+            <p>O arquivo deve ser do tipo "json"</p>
+            {/* Estilo adicionado no App.css */}
+            <div className="file-select-container">
+              <button className="button-select-file" onClick={handleJsonFileSelect}>
+                Clique para selecionar um arquivo
+              </button>
+            </div>
+          </div>
+          <div className="button-group">
+            <button className="button-voltar-352" onClick={goBackToChoice}>Voltar</button>
           </div>
         </div>
 
@@ -160,7 +241,7 @@ function App() {
             </div>
           </div>
           <div className="button-group2">
-            <button className="button-voltar" onClick={goBackToAbout}>Voltar</button>
+            <button className="button-voltar" onClick={goBackToChoice}>Voltar</button>
             <button className="button-continuar" onClick={goToPopDetails} disabled={!selectedSector}>Continuar</button>
           </div>
         </div>
