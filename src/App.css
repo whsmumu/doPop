@@ -7,7 +7,9 @@
     outline: none;
 }
 
-html, body, #root {
+html,
+body,
+#root {
     background: transparent !important;
     background-color: transparent !important;
     border: none !important;
@@ -40,7 +42,7 @@ html, body, #root {
     width: 100%;
     height: 100vh;
     background-color: rgba(28, 28, 30, 0.547);
-    border-radius: 12px;
+    border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0);
     display: flex;
     flex-direction: column;
@@ -50,58 +52,57 @@ html, body, #root {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0);
 }
 
-
-
 /*- + x botões*/
 .titlebar-buttons {
-  display: flex;
-  align-items: center; 
-  gap: 0.5rem; 
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .titlebar {
-  height: 3.25rem;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 1.25rem;
-  -webkit-app-region: drag;
-  flex-shrink: 0;
+    height: 3.25rem;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.25rem;
+    -webkit-app-region: drag;
+    flex-shrink: 0;
 }
 
 .titlebar button {
-  color: rgba(176, 176, 176, 0.885);
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  cursor: pointer;
+    color: rgba(176, 176, 176, 0.885);
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
 }
 
 .titlebar button:hover {
     color: rgb(255, 255, 255);
-  background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.15);
 }
 
 .titlebar button:last-child:hover {
-  background: rgba(255, 58, 48, 0.69);
+    background: rgba(255, 58, 48, 0.69);
 }
+
 /*- + x botões*/
 
 
 
 #minimize-btn span {
-  position: relative;
-  top: 1px; 
+    position: relative;
+    top: 1px;
 }
 
 .window-title {
-    font-size: 0.8125rem; 
+    font-size: 0.8125rem;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.6);
     -webkit-app-region: no-drag;
@@ -110,30 +111,67 @@ html, body, #root {
 
 .window-content {
     flex: 1;
-    padding: 2rem; 
+    position: relative;
+    /* Para posicionar as páginas */
+    overflow: hidden;
+    /* Para a animação funcionar */
+}
+
+/* --- ESTILOS DE PÁGINA E ANIMAÇÃO --- */
+.page {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: transparent;
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
 }
 
+.page-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    padding-bottom: 5rem;
+    text-align: center;
+}
+
+
+.page.hidden {
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+}
+
+/* --- FIM DOS ESTILOS DE PÁGINA E ANIMAÇÃO --- */
+
+
+/*titulo - pagina inicial*/
 .window-content h1 {
-    font-size: 28px; 
-    font-weight: 400; 
+    font-size: 34px;
+    font-weight: 370;
     color: rgb(255, 255, 255);
     margin-bottom: 0.5rem;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.185);
 }
 
+/*subtitulo - pagina inicial*/
 .window-content p {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 100;
     color: rgba(255, 255, 255, 0.478);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-button, input, select, textarea {
+button,
+input,
+select,
+textarea {
     border-radius: 7px;
     cursor: default;
     font-size: 14px;
@@ -143,14 +181,90 @@ button, input, select, textarea {
     user-select: none;
 }
 
+/*minimizar, maximizar e fechar - botão*/
 button {
     background: transparent;
     border: none;
     font-size: 14px;
 }
-button:hover {
-    background: rgba(255,255,255,0.1);
+
+.button-group {
+    position: absolute;
+    bottom: 190px;
+    display: flex;
+    gap: 10px; /* espaço entre os botões */
 }
+
+.button-group2{
+    position: absolute;
+    bottom: 90px;
+    right: 37.5%;
+    display: flex;
+    gap: 10px; /* espaço entre os botões */
+}
+
+.button-avancar {
+    position: absolute;
+    bottom: 190px;
+    padding: 8px 24px;
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: rgba(255, 255, 255, 0.848);
+    font-weight: 500;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.button-avancar:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.button-voltar {
+    padding: 8px 24px;
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: rgba(255, 255, 255, 0.848);
+    font-weight: 500;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.button-voltar:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.button-iniciar {
+    padding: 8px 24px;
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: rgba(255, 255, 255, 0.848);
+    font-weight: 500;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.button-iniciar:hover {
+   background-color: rgba(255, 255, 255, 0.1);
+   color: rgba(255, 255, 255, 0.9);
+}
+
+.button-continuar{
+    position: static;
+    bottom: 190px;
+    padding: 8px 24px;
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: rgba(255, 255, 255, 0.848);
+    font-weight: 500;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.button-continuar:hover {
+   background-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* --- FIM DOS ESTILOS DOS BOTÕES --- */
+
 
 a {
     cursor: default;
@@ -159,14 +273,16 @@ a {
     user-select: none;
 }
 
-@media (max-width: 48rem) { 
+@media (max-width: 48rem) {
     .titlebar {
-        height: 2.75rem; 
+        height: 2.75rem;
         padding: 0 1rem;
     }
-    .window-content {
+
+    .page {
         padding: 1.5rem;
     }
+
     .window-content h1 {
         font-size: 1.25rem;
     }
@@ -210,35 +326,105 @@ a {
     .macos-window {
         background-color: rgba(30, 30, 30, 0.437);
         border: 1px solid rgba(255, 255, 255, 0.103);
-        
+
     }
-    
+
     .window {
-        background-color: rgba(19, 19, 20, 0.5);
+        background-color: rgba(19, 19, 20, 0.616);
         border: 1px solid rgba(0, 0, 0, 0);
     }
-    
+
     /*titulo*/
     .window-content h1 {
         color: rgba(255, 255, 255, 0.971);
     }
-    
+
     /*subtitulo*/
     .window-content p {
         color: rgba(255, 255, 255, 0.779);
     }
-    
+
     /*doPOP*/
     .window-title {
         color: rgba(255, 255, 255, 0.84);
     }
-    
-    
+
+
     .macos-footer {
         color: rgba(255, 255, 255, 0.752);
     }
-    
+
     .macos-footer::before {
         background: rgba(255, 255, 255, 0.08);
     }
+
+/* --- ESTILOS DO CHECKLIST COM ROLAGEM --- */
+.checklist-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 1.5rem;
+    width: 280px;
+    max-height: 215px; /* Altura máxima antes de mostrar a rolagem */
+    overflow-y: auto; /* Adiciona a rolagem vertical quando necessário */
+    padding-right: 10px; /* Espaço para a barra de rolagem */
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: default;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.radio-option:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.radio-option input[type="radio"] {
+    display: none;
+}
+
+.radio-option .radio-label {
+    color: rgba(255, 255, 255, 0.8);
+    padding-left: 10px;
+}
+
+.radio-option input[type="radio"]:checked + .radio-label {
+    color: white;
+    font-weight: 500;
+}
+.radio-option input[type="radio"]:checked + .radio-label::before {
+    content: '●';
+    color: #4966c6;
+    font-size: 18px;
+    line-height: 1;
+    margin-right: 10px;
+    margin-left: -10px;
+}
+
+/* --- ESTILOS DA BARRA DE ROLAGEM SUTIL --- */
+.checklist-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.checklist-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.checklist-container::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.checklist-container::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
 }
