@@ -1,6 +1,5 @@
 {
-  "$schema": "https://schema.tauri.app/config/2",
-  "productName": "bewindow",
+  "productName": "do-pop",
   "version": "0.1.0",
   "identifier": "com.bewindow.app",
   "build": {
@@ -30,10 +29,10 @@
         "center": true
       }
     ],
+    "macOSPrivateApi": true,
     "security": {
       "csp": null
-    },
-    "macOSPrivateApi": true
+    }
   },
   "bundle": {
     "active": true,
@@ -45,5 +44,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+
+  "plugins": {
+    "dialog": {
+      "scope": [
+        "$PICTURE/**"
+      ]
+    }
   }
 }

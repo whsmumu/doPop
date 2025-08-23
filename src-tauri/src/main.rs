@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             #[cfg(target_os = "windows")]
             {
                 use window_vibrancy::apply_acrylic;
-                apply_acrylic(&window, Some((18, 18, 18, 125))) // Cinza escuro semi-transparente
+                apply_acrylic(&window, Some((18, 18, 18, 125)))
                     .expect("Acrylic not supported on this Windows version");
             }
 

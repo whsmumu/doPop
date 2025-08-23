@@ -1,12 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, ChangeEvent } from 'react';
 import './App.css';
 import { invoke } from '@tauri-apps/api/core';
 import { Window } from '@tauri-apps/api/window';
+import { open } from '@tauri-apps/plugin-dialog';
+import { pictureDir } from '@tauri-apps/api/path';
+
+// Definição do tipo para um passo do POP
+type Step = {
+  id: number;
+  description: string;
+  image: string | null;
+};
 
 function App() {
   const [platform, setPlatform] = useState('');
   const [currentPage, setCurrentPage] = useState('welcome');
+
+  // Estados para armazenar todos os dados do POP
   const [selectedSector, setSelectedSector] = useState('');
+  const [popTitle, setPopTitle] = useState('');
+  const [popDescription, setPopDescription] = useState('');
+  const [steps, setSteps] = useState<Step[]>([
+    { id: Date.now(), description: '', image: null }
+  ]);
 
   useEffect(() => {
     invoke('get_platform').then((p: unknown) => setPlatform(p as string));
@@ -15,28 +31,80 @@ function App() {
   const isWindows = platform === 'windows';
   const appWindow = Window.getCurrent();
 
-  // Funções de navegação
+  // --- Funções de Navegação ---
+  const goToWelcome = () => setCurrentPage('welcome');
   const goToAbout = () => setCurrentPage('about');
   const goToSector = () => setCurrentPage('sector');
-  const goBackToWelcome = () => setCurrentPage('welcome');
+  const goToPopDetails = () => setCurrentPage('popDetails');
+  const goToSteps = () => setCurrentPage('steps');
   const goBackToAbout = () => setCurrentPage('about');
+  const goBackToSector = () => setCurrentPage('sector');
+  const goBackToPopDetails = () => setCurrentPage('popDetails');
 
-  // Atualiza o estado quando um setor é selecionado
-  const handleSectorChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // --- Manipuladores de Dados ---
+  const handleSectorChange = (event: ChangeEvent<HTMLInputElement>) => {
     setSelectedSector(event.target.value);
   };
 
-  // Lista de setores (pode ser expandida)
+  // --- Funções para Gerenciar Passos ---
+  const addStep = () => {
+    const newStep = { id: Date.now(), description: '', image: null };
+    setSteps([...steps, newStep]);
+  };
+
+  const removeStep = (id: number) => {
+    setSteps(steps.filter(step => step.id !== id));
+  };
+
+  const handleStepDescriptionChange = (id: number, description: string) => {
+    setSteps(steps.map(step =>
+      step.id === id ? { ...step, description } : step
+    ));
+  };
+
+   const handleStepImageChange = async (id: number) => {
+    try { // <-- Inicia o bloco try
+      // Pega o caminho para a pasta de imagens do sistema operacional
+      const picturePath = await pictureDir();
+
+      const selectedPath = await open({
+        multiple: false,
+        filters: [{ name: 'Image', extensions: ['png', 'jpeg', 'jpg'] }],
+        // Define o caminho inicial para a pasta de imagens
+        defaultPath: picturePath,
+      });
+
+      if (typeof selectedPath === 'string') {
+        setSteps(steps.map(step =>
+          step.id === id ? { ...step, image: selectedPath } : step
+        ));
+      }
+    } catch (error) { // <-- Captura qualquer erro que acontecer
+      console.error("Erro ao abrir o seletor de arquivos:", error);
+    }
+  };
+
+  // Função para enviar todos os dados para o backend (simulação)
+  const handleSubmitPop = () => {
+    const popData = {
+      sector: selectedSector,
+      title: popTitle,
+      description: popDescription,
+      steps: steps
+    };
+    console.log("Enviando para o backend:", popData);
+    // invoke('sua_funcao_backend', { data: popData });
+  };
+
+
   const setores = ["Administrativo", "Comercial", "Fiscal", "Financeiro", "TI", "RH", "Logística", "Controles Internos", "Manutenção"];
 
   return (
     <div className={isWindows ? "window" : "macos-window"}>
       {isWindows ? (
-        // @ts-ignore
-        <div className="titlebar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px', height: '32px', '-webkit-app-region': 'drag' }}>
+        <div className="titlebar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px', height: '32px', '-webkit-app-region': 'drag' } as any}>
           <div className="window-title">do-pop</div>
-          {/* @ts-ignore */}
-          <div style={{ display: 'flex', gap: '1px', '-webkit-app-region': 'no-drag' }}>
+          <div style={{ display: 'flex', gap: '1px', '-webkit-app-region': 'no-drag' } as any}>
             <button onClick={() => appWindow.minimize()} style={{ minWidth: '28px' }}><span>–</span></button>
             <button onClick={() => appWindow.toggleMaximize()} style={{ minWidth: '28px' }}>+</button>
             <button onClick={() => appWindow.close()} style={{ minWidth: '28px' }}>×</button>
@@ -48,10 +116,8 @@ function App() {
         </div>
       )}
 
-
-
       <div className="window-content">
-        {/* Página 1: Tela de Boas-Vindas */}
+        {/* Página 1: Boas-Vindas (Inalterada) */}
         <div className={`page ${currentPage !== 'welcome' ? 'hidden' : ''}`}>
           <div className="page-content">
             <h1>Bem-vindo(a) ao <strong>do-pop!</strong></h1>
@@ -60,53 +126,134 @@ function App() {
           <button className="button-avancar" onClick={goToAbout}>Avançar</button>
         </div>
 
-
-
-        {/* Página 2: Tela de Explicação */}
+        {/* Página 2: Explicação (Inalterada) */}
         <div className={`page ${currentPage !== 'about' ? 'hidden' : ''}`}>
           <div className="page-content">
             <h1>Como funciona?</h1>
             <p style={{ maxWidth: '70%', textAlign: 'center' }}>
-              Este aplicativo vai te ajudar a <strong><strong>documentar</strong></strong>, <strong><strong>gerenciar</strong></strong> e <strong><strong>padronizar</strong></strong> todos os procedimentos operacionais padrão do seu setor, através de passos detalhados e com imagens para melhor entendimento.
+              Este aplicativo vai te ajudar a <strong>documentar</strong>, <strong>gerenciar</strong> e <strong>padronizar</strong> todos os procedimentos operacionais padrão do seu setor, através de passos detalhados e com imagens para melhor entendimento.
             </p>
           </div>
           <div className="button-group">
-            <button className="button-voltar" onClick={goBackToWelcome}>Voltar</button>
+            <button className="button-voltar" onClick={goToWelcome}>Voltar</button>
             <button className="button-iniciar" onClick={goToSector}>Iniciar</button>
           </div>
         </div>
 
-
-
-        {/* Página 3: Seleção de Setor */}
+        {/* Página 3: Seleção de Setor (Inalterada) */}
         <div className={`page ${currentPage !== 'sector' ? 'hidden' : ''}`}>
           <div className="page-content">
             <h1>Qual o seu setor?</h1>
             <div className="checklist-container">
-              {setores
-                .filter(setor => typeof setor === "string" && setor.trim() !== "")
-                .map((setor, idx) => (
-                  <label key={idx} className="radio-option">
-                    <input
-                      type="radio"
-                      name="setor"
-                      value={setor}
-                      checked={selectedSector === setor}
-                      onChange={handleSectorChange}
-                    />
-                    <span className="radio-label">{setor}</span>
-                  </label>
-                ))}
+              {setores.map((setor, idx) => (
+                <label key={idx} className="radio-option">
+                  <input
+                    type="radio"
+                    name="setor"
+                    value={setor}
+                    checked={selectedSector === setor}
+                    onChange={handleSectorChange}
+                  />
+                  <span className="radio-label">{setor}</span>
+                </label>
+              ))}
             </div>
           </div>
           <div className="button-group2">
             <button className="button-voltar" onClick={goBackToAbout}>Voltar</button>
-            {/* O botão de Enviar agora está aqui, ao lado do de Voltar */}
-            <button className="button-continuar" onClick={() => { /* Adicionar lógica de envio aqui */ }}>Continuar</button>
+            <button className="button-continuar" onClick={goToPopDetails} disabled={!selectedSector}>Continuar</button>
+          </div>
+        </div>
+
+        {/* Página 4: Detalhes do POP (Layout com Rolagem) */}
+        <div className={`page ${currentPage !== 'popDetails' ? 'hidden' : ''}`}>
+          <div className="page-content-full-0">
+            {/* Cabeçalho fixo da página de detalhes */}
+            <div className="details-header">
+              <h1>Defina o título e descrição.</h1>
+            </div>
+
+            {/* Container que terá o rolamento */}
+            <div className="details-scroll-container">
+              <div className="form-container-vertical">
+                <div className="form-group">
+                  <label htmlFor="pop-title">Digite o título</label>
+                  <input
+                    id="pop-title"
+                    type="text"
+                    placeholder="Ex: Como emitir uma nota fiscal"
+                    className="input-field"
+                    value={popTitle}
+                    onChange={(e) => setPopTitle(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="pop-description">Digite a descrição</label>
+                  <textarea
+                    id="pop-description"
+                    placeholder="Objetivo deste procedimento..."
+                    className="textarea-field"
+                    value={popDescription}
+                    onChange={(e) => setPopDescription(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="button-group3">
+            <button className="button-voltar" onClick={goBackToSector}>Voltar</button>
+            <button className="button-continuar" onClick={goToSteps} disabled={!popTitle || !popDescription}>Continuar</button>
+          </div>
+        </div>
+
+
+
+        {/* Página 5: Passo a Passo (Layout Reformulado) */}
+        <div className={`page ${currentPage !== 'steps' ? 'hidden' : ''}`}>
+          {/* O page-content agora ocupa toda a altura */}
+          <div className="page-content-full">
+            {/* Cabeçalho fixo */}
+            <div className="steps-header">
+              <h1>Passo a passo</h1>
+              <button className="button-add-step" onClick={addStep}>
+                + Adicionar Passo
+              </button>
+            </div>
+
+            {/* Container com a lista de passos que terá o rolamento */}
+            <div className="steps-list-container">
+              {steps.map((step, index) => (
+                <div key={step.id} className="step-item">
+                  <span className="step-number">{index + 1}</span>
+                  <div className="step-content">
+                    <textarea
+                      placeholder="Descreva o passo aqui..."
+                      className="step-textarea"
+                      value={step.description}
+                      onChange={(e) => handleStepDescriptionChange(step.id, e.target.value)}
+                    />
+                    <div className="step-actions">
+                      <button className="button-image" onClick={() => handleStepImageChange(step.id)}>
+                        {step.image ? 'Trocar Imagem' : 'Anexar Imagem'}
+                      </button>
+                      {step.image && <span className="image-name" title={step.image}>{step.image.split(/[\\/]/).pop()}</span>}
+                      {/* Div para empurrar o botão remover para a direita */}
+                      <div className="spacer"></div>
+                      {steps.length > 1 && (
+                        <button className="button-remove" onClick={() => removeStep(step.id)}>Remover</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="button-group4">
+            <button className="button-voltar" onClick={goBackToPopDetails}>Voltar</button>
+            <button className="button-continuar" onClick={handleSubmitPop}>Finalizar</button>
           </div>
         </div>
       </div>
-
 
       <footer className="macos-footer">
         <div className="footer-middle">
