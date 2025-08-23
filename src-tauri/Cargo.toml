@@ -7,26 +7,20 @@ license = ""
 repository = ""
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [build-dependencies]
-# Versão específica para a ferramenta de build
-tauri-build = { version = "2.0.0-beta.15", features = [] }
+tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
-# Versões específicas e unificadas para o Tauri e seus plugins
-tauri = { version = "2.0.0-beta.19", features = ["macos-private-api"] }
-tauri-plugin-opener = "2.0.0-beta.8"
-tauri-plugin-global-shortcut = "2.0.0-beta.8"
-tauri-plugin-dialog = "2.0.0-beta.8"
-tauri-plugin-fs = "2.0.0-beta.8"
+tauri = { version = "2.0", features = ["protocol-asset", "macos-private-api"] }
+tauri-plugin-opener = "2.0"
+tauri-plugin-global-shortcut = "2.0"
+tauri-plugin-dialog = "2.0"
+tauri-plugin-fs = "2.0"
 
 window-vibrancy = "0.6.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-
 [features]
-# This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
