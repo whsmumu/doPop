@@ -4,7 +4,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { Window } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
 import { homeDir, pictureDir } from '@tauri-apps/api/path';
-import { readTextFile } from '@tauri-apps/plugin-fs';
+import { readTextFile, writeTextFile, writeFile, create, exists } from '@tauri-apps/plugin-fs';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 // Definição do tipo para um passo do POP
 type Step = {
@@ -18,20 +20,34 @@ type PopData = {
   title: string;
   description: string;
   steps: Step[];
+  author: string;
+  reviewer: string;
+  version: string;
+  createdAt: string;
+  lastUpdated: string;
 };
 
 
 function App() {
+
+
+  const SAVE_PDF = 'C:\Users\ymuri\OneDrive\Área de Trabalho\do-pop';
+  const SAVE_JSON = 'C:\Users\ymuri\OneDrive\Área de Trabalho\do-pop\json';
+
   const [platform, setPlatform] = useState('');
   const [currentPage, setCurrentPage] = useState('welcome');
 
-  // Estados para armazenar todos os dados do POP
+  // Estados dos dados do POP
   const [selectedSector, setSelectedSector] = useState('');
   const [popTitle, setPopTitle] = useState('');
   const [popDescription, setPopDescription] = useState('');
-  const [steps, setSteps] = useState<Step[]>([
-    { id: Date.now(), description: '', image: null }
-  ]);
+  const [steps, setSteps] = useState<Step[]>([{ id: Date.now(), description: '', image: null }]);
+
+  // Estados para certificação e timestamps
+  const [author, setAuthor] = useState('');
+  const [reviewer, setReviewer] = useState('');
+  const [version, setVersion] = useState('');
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
 
   useEffect(() => {
     invoke('get_platform').then((p: unknown) => setPlatform(p as string));
@@ -45,13 +61,23 @@ function App() {
   const goToAbout = () => setCurrentPage('about');
   const goToChoice = () => setCurrentPage('choice'); // NOVO
   const goToEdit = () => setCurrentPage('edit');
-  const goToSector = () => setCurrentPage('sector');
+
+  const goToSector = () => {
+    // Define a data de criação apenas se estiver criando um novo POP
+    if (!createdAt) {
+      setCreatedAt(new Date().toISOString());
+    }
+    setCurrentPage('sector');
+  };
+
   const goToPopDetails = () => setCurrentPage('popDetails');
   const goToSteps = () => setCurrentPage('steps');
   const goBackToAbout = () => setCurrentPage('about');
   const goBackToChoice = () => setCurrentPage('choice');
   const goBackToSector = () => setCurrentPage('sector');
   const goBackToPopDetails = () => setCurrentPage('popDetails');
+  const goToCertification = () => setCurrentPage('certification');
+  const goBackToSteps = () => setCurrentPage('steps');
 
   // --- Manipuladores de Dados ---
   const handleSectorChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -74,6 +100,39 @@ function App() {
     ));
   };
 
+  const getFullPopData = (): PopData => ({
+    sector: selectedSector,
+    title: popTitle,
+    description: popDescription,
+    steps: steps,
+    author: author,
+    reviewer: reviewer,
+    version: version,
+    createdAt: createdAt || new Date().toISOString(),
+    lastUpdated: new Date().toISOString(),
+  });
+
+  const handleSaveJson = async (popData: PopData) => {
+    try {
+      const fileName = `${popData.title.replace(/[\s/\\?%*:|"<>]/g, '_')}.json`;
+      const filePath = `${SAVE_JSON}\\${fileName}`;
+
+      // Cria a pasta se ela não existir
+      if (!(await exists(SAVE_JSON))) {
+        await create(SAVE_JSON);
+      }
+      
+      await writeTextFile(filePath, JSON.stringify(popData, null, 2));
+      console.log(`JSON salvo em: ${filePath}`);
+    } catch (error) {
+      console.error("Erro ao salvar o arquivo JSON:", error);
+      alert('Ocorreu um erro ao salvar o arquivo JSON.');
+    }
+  };
+
+
+
+
   const handleJsonFileSelect = async () => {
     try {
       const homePath = await homeDir();
@@ -87,18 +146,20 @@ function App() {
         const fileContents = await readTextFile(selectedPath);
         const data: PopData = JSON.parse(fileContents);
 
-        // Validação básica dos dados carregados
         if (data.sector && data.title && data.description && Array.isArray(data.steps)) {
-          // Preenche todos os estados da aplicação com os dados do arquivo
           setSelectedSector(data.sector);
           setPopTitle(data.title);
           setPopDescription(data.description);
           setSteps(data.steps);
+          // Campos da tela de certificação
+          setAuthor(data.author || '');
+          setReviewer(data.reviewer || '');
+          setVersion(data.version || '');
+          // Preserva a data de criação original do arquivo
+          setCreatedAt(data.createdAt || new Date().toISOString());
 
-          // Navega para a primeira tela do fluxo para começar a edição
           goToSector();
         } else {
-          // A função `alert` virá do plugin de diálogo, que já está configurado
           alert("Arquivo JSON inválido ou com formato incorreto.");
         }
       }
@@ -108,24 +169,85 @@ function App() {
     }
   };
 
+  const sendDataToBackend = async (popData: PopData) => {
+    console.log("Enviando para o backend:", JSON.stringify(popData, null, 2));
+    try {
+      const response = await fetch('https://SUA_URL_DE_BACKEND/api/pops', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(popData),
+      });
+
+      if (!response.ok) throw new Error(`Erro na rede: ${response.statusText}`);
+
+      const result = await response.json();
+      console.log('Resposta do backend:', result);
+
+    } catch (error) {
+      console.error("Erro ao enviar para o backend:", error);
+      alert('Erro ao salvar os dados no servidor.');
+    }
+  };
+
+   const handleFinalSubmit = async () => {
+    const popData = getFullPopData();
+
+    // Salva ambos os arquivos nos caminhos definidos
+    await handleSaveJson(popData);
+    await handleGeneratePdf(popData);
+
+    //await sendDataToBackend(popData);
+
+    alert('Procedimento salvo com sucesso na pasta');
+    
+    // Resetar estado e voltar para o início
+    goToWelcome();
+  };
+
+
+   const handleGeneratePdf = async (popData: PopData) => {
+    try {
+      const input = document.getElementById('pdf-content-wrapper');
+      if (!input) throw new Error('Elemento para gerar o PDF não encontrado.');
+
+      input.style.display = 'block';
+      const canvas = await html2canvas(input);
+      input.style.display = 'none';
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pdfWidth, pdfHeight);
+      
+      const pdfOutput = pdf.output('arraybuffer');
+
+      const fileName = `${popData.title.replace(/[\s/\\?%*:|"<>]/g, '_')}.pdf`;
+      const filePath = `${SAVE_PDF}\\${fileName}`;
+
+      // Cria a pasta se ela não existir
+      if (!(await exists(SAVE_PDF))) {
+        await create(SAVE_PDF);
+      }
+
+      await writeFile(filePath, new Uint8Array(pdfOutput));
+      console.log(`PDF salvo em: ${filePath}`);
+    } catch (error) {
+      console.error("Erro ao gerar ou salvar o PDF:", error);
+      alert('Ocorreu um erro ao gerar o PDF.');
+    }
+  };
+
   const handleStepImageChange = async (id: number) => {
     try {
-      // 1. Pega o caminho para a pasta de imagens do sistema
       const picturePath = await pictureDir();
-
-      // 2. Abre a janela de seleção de arquivo
       const selectedPath = await open({
         multiple: false,
         filters: [{ name: 'Image', extensions: ['png', 'jpeg', 'jpg'] }],
-        // 3. Define o caminho inicial para a pasta de imagens
         defaultPath: picturePath,
       });
-
-      // 4. Atualiza o estado com a imagem selecionada
       if (typeof selectedPath === 'string') {
-        setSteps(steps.map(step =>
-          step.id === id ? { ...step, image: selectedPath } : step
-        ));
+        setSteps(steps.map(step => (step.id === id ? { ...step, image: selectedPath } : step)));
       }
     } catch (error) {
       console.error("Erro ao abrir o seletor de arquivos:", error);
@@ -200,7 +322,7 @@ function App() {
             <button className="button-voltar" onClick={goBackToAbout}>Voltar</button>
             <button className="button-iniciar" onClick={goToSector}>Criar</button>
             <button className="button-iniciar" onClick={goToEdit}>Editar</button>
-            
+
           </div>
         </div>
 
@@ -331,10 +453,70 @@ function App() {
           </div>
           <div className="button-group4">
             <button className="button-voltar" onClick={goBackToPopDetails}>Voltar</button>
-            <button className="button-continuar" onClick={handleSubmitPop}>Finalizar</button>
+            {/* Agora chama a nova tela de certificação */}
+            <button className="button-continuar" onClick={goToCertification}>Finalizar</button>
           </div>
         </div>
       </div>
+
+
+
+      {/* --- NOVA PÁGINA 6: Certificação --- */}
+      <div className={`page ${currentPage !== 'certification' ? 'hidden' : ''}`}>
+        <div className="page-content-full-0">
+          <div className="details-header">
+            <h1>Certificação</h1>
+          </div>
+          <div className="details-scroll-container">
+            <div className="form-container-vertical">
+              <div className="form-group">
+                <label htmlFor="author-name">Nome de quem fez</label>
+                <input
+                  id="author-name"
+                  type="text"
+                  placeholder="Digite o nome do autor"
+                  className="input-field"
+                  value={author}
+                  onChange={(e) => setAuthor(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="reviewer-name">Nome de quem revisou</label>
+                <input
+                  id="reviewer-name"
+                  type="text"
+                  placeholder="Digite o nome do revisor"
+                  className="input-field"
+                  value={reviewer}
+                  onChange={(e) => setReviewer(e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="pop-version">Versão</label>
+                <input
+                  id="pop-version"
+                  type="text"
+                  placeholder="Ex: 1.0.0"
+                  className="input-field"
+                  value={version}
+                  onChange={(e) => setVersion(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="button-group3">
+          <button className="button-voltar" onClick={goBackToSteps}>Voltar</button>
+          <button className="button-continuar" onClick={handleFinalSubmit} disabled={!author || !reviewer || !version}>Salvar</button>
+        </div>
+      </div>
+
+      {/* Template invisível para o PDF */}
+      <div id="pdf-content" style={{ display: 'none', padding: '20px' }}>
+        {/* Conteúdo que será renderizado no PDF */}
+      </div>
+
+
 
       <footer className="macos-footer">
         <div className="footer-middle">
