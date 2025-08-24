@@ -5,8 +5,8 @@ import { Window } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
 import { pictureDir, documentDir } from '@tauri-apps/api/path';
 import { readTextFile, writeTextFile, writeFile, exists, mkdir, readFile } from '@tauri-apps/plugin-fs';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { Document, Page, Text, View, StyleSheet, pdf, Image } from '@react-pdf/renderer';
+import React from 'react';
 
 // Definição do tipo para um passo do POP
 type Step = {
@@ -26,6 +26,220 @@ type PopData = {
   createdAt: string;
   lastUpdated: string;
 };
+
+// Estilos do PDF
+const styles = StyleSheet.create({
+  page: {
+    flexDirection: 'column',
+    backgroundColor: '#FFFFFF',
+    padding: 30,
+    fontFamily: 'Helvetica'
+  },
+  header: {
+    marginBottom: 20,
+    borderBottom: 2,
+    borderBottomColor: '#333',
+    paddingBottom: 15,
+    textAlign: 'center'
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8f9fa',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10
+  },
+  infoItem: {
+    flex: 1,
+    fontSize: 10
+  },
+  infoLabel: {
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 2
+  },
+  infoValue: {
+    color: '#555'
+  },
+  sectorText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#666',
+    marginTop: 10
+  },
+  popTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+    marginTop: 20
+  },
+  descriptionBox: {
+    backgroundColor: '#f5f5f5',
+    padding: 15,
+    borderRadius: 5,
+    marginBottom: 20
+  },
+  descriptionTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8
+  },
+  descriptionText: {
+    fontSize: 11,
+    color: '#555',
+    lineHeight: 1.6
+  },
+  stepsTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+    borderBottom: 1,
+    borderBottomColor: '#ddd',
+    paddingBottom: 8
+  },
+  stepContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    padding: 15,
+    border: 1,
+    borderColor: '#ddd',
+    borderRadius: 5,
+    backgroundColor: '#fafafa'
+  },
+  stepNumber: {
+    width: 25,
+    height: 25,
+    backgroundColor: '#4966c6',
+    color: 'white',
+    borderRadius: 12.5,
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginRight: 10,
+    paddingTop: 6
+  },
+  stepContent: {
+    flex: 1
+  },
+  stepText: {
+    fontSize: 11,
+    color: '#333',
+    lineHeight: 1.6,
+    marginBottom: 10
+  },
+  stepImage: {
+    width: '100%',
+    maxHeight: 200,
+    objectFit: 'contain',
+    border: 1,
+    borderColor: '#ddd',
+    borderRadius: 3
+  },
+  imageCaption: {
+    fontSize: 9,
+    color: '#666',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 5
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 30,
+    left: 30,
+    right: 30,
+    textAlign: 'center',
+    borderTop: 1,
+    borderTopColor: '#ddd',
+    paddingTop: 15
+  },
+  footerText: {
+    fontSize: 10,
+    color: '#666'
+  }
+});
+
+// Componente do PDF
+const PopPDF = ({ popData }: { popData: PopData }) => (
+  <Document>
+    <Page size="A4" style={styles.page}>
+      {/* Cabeçalho */}
+      <View style={styles.header}>
+        <Text style={styles.title}>PROCEDIMENTO OPERACIONAL PADRÃO</Text>
+        
+        <View style={styles.infoGrid}>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Elaborado por:</Text>
+            <Text style={styles.infoValue}>{popData.author}</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Revisado por:</Text>
+            <Text style={styles.infoValue}>{popData.reviewer}</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Versão:</Text>
+            <Text style={styles.infoValue}>{popData.version}</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>Data:</Text>
+            <Text style={styles.infoValue}>
+              {new Date(popData.createdAt).toLocaleDateString('pt-BR')}
+            </Text>
+          </View>
+        </View>
+        
+        <Text style={styles.sectorText}>Setor: {popData.sector}</Text>
+      </View>
+
+      {/* Título e Descrição */}
+      <Text style={styles.popTitle}>{popData.title}</Text>
+      
+      <View style={styles.descriptionBox}>
+        <Text style={styles.descriptionTitle}>Descrição:</Text>
+        <Text style={styles.descriptionText}>{popData.description}</Text>
+      </View>
+
+      {/* Passos */}
+      <Text style={styles.stepsTitle}>Passo a Passo:</Text>
+      
+      {popData.steps.map((step, index) => (
+        <View key={step.id} style={styles.stepContainer}>
+          <Text style={styles.stepNumber}>{index + 1}</Text>
+          <View style={styles.stepContent}>
+            <Text style={styles.stepText}>{step.description}</Text>
+            {step.image && (
+              <View>
+                <Image src={step.image} style={styles.stepImage} />
+                <Text style={styles.imageCaption}>
+                  Figura {index + 1}: {step.image.split(/[\\/]/).pop()}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      ))}
+
+      {/* Rodapé */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          © Novo Mix Supermercados. Todos os direitos reservados.
+        </Text>
+        <Text style={styles.footerText}>
+          Última atualização: {new Date(popData.lastUpdated).toLocaleDateString('pt-BR')}
+        </Text>
+      </View>
+    </Page>
+  </Document>
+);
 
 function App() {
   const [platform, setPlatform] = useState('');
@@ -212,208 +426,59 @@ function App() {
     setCreatedAt(null);
   };
 
+  // Função para converter imagem local para base64 compatível com React-PDF
+  const convertImageToBase64 = async (imagePath: string): Promise<string> => {
+    try {
+      const imageData = await readFile(imagePath);
+      
+      let binary = '';
+      const len = imageData.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(imageData[i]);
+      }
+      const base64 = btoa(binary);
+      
+      const extension = imagePath.split('.').pop()?.toLowerCase();
+      let mimeType = 'image/jpeg';
+      if (extension === 'png') mimeType = 'image/png';
+      if (extension === 'jpg' || extension === 'jpeg') mimeType = 'image/jpeg';
+      
+      return `data:${mimeType};base64,${base64}`;
+    } catch (error) {
+      console.error('Erro ao converter imagem:', error);
+      return '';
+    }
+  };
+
   const handleGeneratePdf = async (popData: PopData): Promise<string> => {
     try {
-      const pdfContent = document.getElementById('pdf-content');
-      if (!pdfContent) throw new Error('Elemento PDF não encontrado.');
-
-      pdfContent.innerHTML = '';
-
-      // Função para converter imagem em base64
-      const imageToBase64 = async (imagePath: string): Promise<string> => {
-        try {
-          const imageData = await readFile(imagePath);
-          
-          let binary = '';
-          const len = imageData.byteLength;
-          for (let i = 0; i < len; i++) {
-            binary += String.fromCharCode(imageData[i]);
-          }
-          const base64 = btoa(binary);
-          
-          const extension = imagePath.split('.').pop()?.toLowerCase();
-          let mimeType = 'image/jpeg';
-          if (extension === 'png') mimeType = 'image/png';
-          if (extension === 'jpg' || extension === 'jpeg') mimeType = 'image/jpeg';
-          
-          return `data:${mimeType};base64,${base64}`;
-        } catch (error) {
-          console.error('Erro ao converter imagem:', error);
-          return '';
-        }
-      };
-
-      // Processar imagens dos passos
+      // Processar imagens dos passos para base64
       const processedSteps = await Promise.all(
         popData.steps.map(async (step) => {
           let imageBase64 = '';
           if (step.image) {
-            imageBase64 = await imageToBase64(step.image);
+            imageBase64 = await convertImageToBase64(step.image);
           }
-          return { ...step, imageBase64 };
+          return { ...step, image: imageBase64 || step.image };
         })
       );
 
-      // Template do PDF com cabeçalho no topo
-      const content = `
-        <div style="font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; background: white; color: black;">
-          <!-- Cabeçalho Principal no Topo -->
-          <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 15px;">
-            <h1 style="color: #333; margin: 0 0 15px 0; font-size: 24px; font-weight: bold;">PROCEDIMENTO OPERACIONAL PADRÃO</h1>
-            
-            <!-- Informações de Certificação no Cabeçalho -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 20px; margin-top: 15px; text-align: left; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef;">
-              <div>
-                <strong style="color: #333; font-size: 12px; display: block;">Elaborado por:</strong>
-                <span style="color: #555; font-size: 13px;">${popData.author}</span>
-              </div>
-              <div>
-                <strong style="color: #333; font-size: 12px; display: block;">Revisado por:</strong>
-                <span style="color: #555; font-size: 13px;">${popData.reviewer}</span>
-              </div>
-              <div>
-                <strong style="color: #333; font-size: 12px; display: block;">Versão:</strong>
-                <span style="color: #555; font-size: 13px;">${popData.version}</span>
-              </div>
-              <div>
-                <strong style="color: #333; font-size: 12px; display: block;">Data:</strong>
-                <span style="color: #555; font-size: 13px;">${new Date(popData.createdAt).toLocaleDateString('pt-BR')}</span>
-              </div>
-            </div>
-            
-            <!-- Setor logo abaixo do cabeçalho -->
-            <div style="margin-top: 15px;">
-              <strong style="color: #666; font-size: 14px;">Setor: ${popData.sector}</strong>
-            </div>
-          </div>
+      const processedPopData = { ...popData, steps: processedSteps };
 
-          <!-- Informações do POP -->
-          <div style="margin-bottom: 30px;">
-            <h2 style="color: #333; font-size: 20px; margin-bottom: 10px;">${popData.title}</h2>
-            <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-              <h3 style="color: #333; font-size: 16px; margin-bottom: 10px;">Descrição:</h3>
-              <p style="color: #555; line-height: 1.6; margin: 0; font-size: 14px;">${popData.description}</p>
-            </div>
-          </div>
-
-          <!-- Passos -->
-          <div style="margin-bottom: 40px;">
-            <h3 style="color: #333; font-size: 18px; margin-bottom: 20px; border-bottom: 1px solid #ddd; padding-bottom: 10px;">Passo a Passo:</h3>
-            ${processedSteps.map((step, index) => `
-              <div style="margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; page-break-inside: avoid;">
-                <div style="display: flex; align-items: flex-start; gap: 15px; margin-bottom: ${step.imageBase64 ? '15px' : '0'};">
-                  <div style="background: #4966c6; color: white; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0;">
-                    ${index + 1}
-                  </div>
-                  <div style="flex: 1;">
-                    <p style="color: #333; line-height: 1.6; margin: 0; font-size: 14px;">${step.description}</p>
-                  </div>
-                </div>
-                ${step.imageBase64 ? `
-                  <div style="margin-top: 15px; text-align: center;">
-                    <img src="${step.imageBase64}" style="max-width: 100%; max-height: 400px; border: 1px solid #ddd; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" />
-                    <p style="color: #666; font-size: 11px; margin-top: 5px; font-style: italic;">Figura ${index + 1}: ${step.image ? step.image.split(/[\\/]/).pop() : ''}</p>
-                  </div>
-                ` : ''}
-              </div>
-            `).join('')}
-          </div>
-
-          <!-- Rodapé -->
-          <div style="margin-top: 40px; text-align: center; padding-top: 20px; border-top: 1px solid #ddd;">
-            <p style="color: #666; font-size: 12px; margin: 0;">© Novo Mix Supermercados. Todos os direitos reservados.</p>
-            <p style="color: #666; font-size: 11px; margin: 5px 0 0 0;">Última atualização: ${new Date(popData.lastUpdated).toLocaleDateString('pt-BR')}</p>
-          </div>
-        </div>
-      `;
-
-      pdfContent.innerHTML = content;
-      pdfContent.style.display = 'block';
-
-      // Aguardar as imagens carregarem
-      const images = pdfContent.getElementsByTagName('img');
-      if (images.length > 0) {
-        await Promise.all(
-          Array.from(images).map(img => {
-            return new Promise((resolve) => {
-              if (img.complete) {
-                resolve(true);
-              } else {
-                img.onload = () => resolve(true);
-                img.onerror = () => resolve(true);
-              }
-            });
-          })
-        );
-        
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-
-      const canvas = await html2canvas(pdfContent, {
-        backgroundColor: '#ffffff',
-        scale: 1.5,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        scrollX: 0,
-        scrollY: 0,
-        width: pdfContent.scrollWidth,
-        height: pdfContent.scrollHeight
-      });
-
-      pdfContent.style.display = 'none';
-
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-
-      // Calcular dimensões mantendo proporção
-      const ratio = Math.min(pdfWidth / (canvasWidth * 0.264583), pdfHeight / (canvasHeight * 0.264583));
-      const imgWidth = canvasWidth * 0.264583 * ratio;
-      const imgHeight = canvasHeight * 0.264583 * ratio;
-
-      // Se a imagem for muito alta, pode precisar de múltiplas páginas
-      if (imgHeight > pdfHeight) {
-        let remainingHeight = imgHeight;
-        let sourceY = 0;
-        
-        while (remainingHeight > 0) {
-          const pageHeight = Math.min(remainingHeight, pdfHeight - 20);
-          const sourceHeight = pageHeight / ratio / 0.264583;
-          
-          const pageCanvas = document.createElement('canvas');
-          const pageContext = pageCanvas.getContext('2d');
-          pageCanvas.width = canvasWidth;
-          pageCanvas.height = sourceHeight;
-          
-          if (pageContext) {
-            pageContext.drawImage(canvas, 0, sourceY, canvasWidth, sourceHeight, 0, 0, canvasWidth, sourceHeight);
-            pdf.addImage(pageCanvas.toDataURL('image/png'), 'PNG', 10, 10, imgWidth, pageHeight);
-          }
-          
-          remainingHeight -= pageHeight;
-          sourceY += sourceHeight;
-          
-          if (remainingHeight > 0) {
-            pdf.addPage();
-          }
-        }
-      } else {
-        const x = (pdfWidth - imgWidth) / 2;
-        const y = 10;
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', x, y, imgWidth, imgHeight);
-      }
-
-      const pdfOutput = pdf.output('arraybuffer');
-      const fileName = `${popData.title.replace(/[\s/\\?%*:|"<>]/g, '_')}.pdf`;
+      // Gerar PDF usando React-PDF
+      const pdfDoc = <PopPDF popData={processedPopData} />;
+      const blob = await pdf(pdfDoc).toBlob();
       
-      // Usar o caminho específico do setor para salvar o PDF
+      // Converter blob para ArrayBuffer
+      const arrayBuffer = await blob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      // Definir caminho e nome do arquivo
+      const fileName = `${popData.title.replace(/[\s/\\?%*:|"<>]/g, '_')}.pdf`;
       const sectorBasePath = getSectorPath(popData.sector);
       const pdfFolder = `${sectorBasePath}/pdf`;
       
-      // Criar as pastas se não existirem
+      // Criar pastas se necessário
       if (!(await exists(sectorBasePath))) {
         await mkdir(sectorBasePath, { recursive: true });
       }
@@ -421,14 +486,15 @@ function App() {
         await mkdir(pdfFolder, { recursive: true });
       }
       
+      // Salvar arquivo
       const filePath = `${pdfFolder}/${fileName}`;
-      await writeFile(filePath, new Uint8Array(pdfOutput));
-      console.log(`PDF salvo em: ${filePath}`);
+      await writeFile(filePath, uint8Array);
       
+      console.log(`PDF salvo em: ${filePath}`);
       return pdfFolder;
       
     } catch (error) {
-      console.error("Erro ao gerar ou salvar o PDF:", error);
+      console.error("Erro ao gerar PDF:", error);
       throw error;
     }
   };
@@ -796,19 +862,6 @@ function App() {
             )}
           </div>
         </div>
-      </div>
-
-      {/* Template para o PDF */}
-      <div id="pdf-content" style={{
-        display: 'none',
-        position: 'absolute',
-        top: '-9999px',
-        left: '-9999px',
-        width: '210mm',
-        minHeight: '297mm',
-        backgroundColor: 'white'
-      }}>
-        {/* Conteúdo será inserido dinamicamente pelo JavaScript */}
       </div>
 
       <footer className="macos-footer">

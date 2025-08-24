@@ -37,7 +37,8 @@
       "assetProtocol": {
         "enable": true,
         "scope": [
-          "**"
+          "**",
+          "C:\\Users\\ymuri\\OneDrive\\Área de Trabalho\\do-pop\\**"
         ]
       }
     }
@@ -52,12 +53,5 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
-  },
-  "plugins": {
-    "fs": {
-      "scope": [
-        "**"
-      ]
-    }
   }
 }
