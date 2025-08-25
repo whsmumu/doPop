@@ -33,7 +33,7 @@ export type AdminSettings = {
   companyName: string;
   sectorPasswords: { [sector: string]: string };
   adminPassword: string;
-  categories: PopCategory[];
+  categoriesBySector: { [sector: string]: PopCategory[] };
 };
 
 export type ApiResponse<T> = {
@@ -65,7 +65,7 @@ export const DEFAULT_CATEGORIES: PopCategory[] = [
   "Relatório"
 ];
 
-// Configurações da API (substitua pela sua URL real quando pronto)
+// Configurações da API - SUBSTITUA pela URL do seu backend Java
 export const API_BASE_URL = "http://localhost:8080/api";
 
 export const API_ENDPOINTS = {

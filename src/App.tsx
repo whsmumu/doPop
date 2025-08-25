@@ -63,6 +63,9 @@ function App() {
 
   // Estados para dropdown de categoria
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+
+  // Estados para autenticação
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentAuthSector, setCurrentAuthSector] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
@@ -77,6 +80,10 @@ function App() {
   // Estados para salvar
   const [saveStatus, setSaveStatus] = useState<'loading' | 'success' | 'error' | null>(null);
   const [saveMessage, setSaveMessage] = useState('');
+
+  // Estados para modal de confirmação
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [popToDelete, setPopToDelete] = useState<number | null>(null);
 
   // Configurações locais (temporárias até backend estar pronto)
   const [adminSettings, setAdminSettings] = useState<AdminSettings>({
@@ -131,28 +138,31 @@ function App() {
   // --- API Functions (Mock - substituir por chamadas reais) ---
   const apiService = {
     async createPop(popData: PopData): Promise<{success: boolean, data?: PopData, error?: string}> {
-      // Mock - substituir por fetch real
+      // Mock - substituir por fetch real para seu backend Java
       console.log('Creating POP:', popData);
       await new Promise(resolve => setTimeout(resolve, 1000));
+      // Aqui você faria: const response = await fetch('http://localhost:8080/api/pops', {...})
       return { success: true, data: { ...popData, id: Date.now() } };
     },
 
     async updatePop(id: number, popData: PopData): Promise<{success: boolean, data?: PopData, error?: string}> {
       console.log('Updating POP:', id, popData);
       await new Promise(resolve => setTimeout(resolve, 1000));
+      // Aqui você faria: const response = await fetch(`http://localhost:8080/api/pops/${id}`, {...})
       return { success: true, data: { ...popData, id } };
     },
 
     async deletePop(id: number): Promise<{success: boolean, error?: string}> {
       console.log('Deleting POP:', id);
       await new Promise(resolve => setTimeout(resolve, 500));
+      // Aqui você faria: const response = await fetch(`http://localhost:8080/api/pops/${id}`, {method: 'DELETE'})
       return { success: true };
     },
 
     async getPopsBySector(sector: string): Promise<{success: boolean, data?: PopData[], error?: string}> {
       console.log('Getting POPs for sector:', sector);
       await new Promise(resolve => setTimeout(resolve, 500));
-      // Mock data
+      // Mock data - substituir por chamada real
       const mockPops: PopData[] = [
         {
           id: 1,
@@ -194,10 +204,12 @@ function App() {
   const goToAbout = () => setCurrentPage('about');
   const goToChoice = () => setCurrentPage('choice');
   const goToSectorSelection = () => setCurrentPage('sectorSelection');
+  
   const goToSectorAuth = (sector: string) => {
     setCurrentAuthSector(sector);
     setCurrentPage('sectorAuth');
   };
+  
   const goToPopManagement = () => setCurrentPage('popManagement');
 
   const goToSector = () => {
@@ -237,6 +249,8 @@ function App() {
     setAdminPasswordInput('');
     setAdminError('');
     setIsCategoryDropdownOpen(false);
+    setShowDeleteModal(false);
+    setPopToDelete(null);
   };
 
   // --- Authentication Functions ---
@@ -303,16 +317,28 @@ function App() {
   };
 
   const handleDeletePop = async (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir este POP?')) {
+    setPopToDelete(id);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeletePop = async () => {
+    if (popToDelete) {
       try {
-        const result = await apiService.deletePop(id);
+        const result = await apiService.deletePop(popToDelete);
         if (result.success) {
-          setPopsInSector(pops => pops.filter(pop => pop.id !== id));
+          setPopsInSector(pops => pops.filter(pop => pop.id !== popToDelete));
         }
       } catch (error) {
         console.error('Error deleting POP:', error);
       }
     }
+    setShowDeleteModal(false);
+    setPopToDelete(null);
+  };
+
+  const cancelDeletePop = () => {
+    setShowDeleteModal(false);
+    setPopToDelete(null);
   };
 
   // --- Form Handlers ---
@@ -403,7 +429,7 @@ function App() {
   // Admin Settings Functions
   const handleUpdateAdminSettings = (newSettings: AdminSettings) => {
     setAdminSettings(newSettings);
-    // Aqui você faria a chamada para a API
+    // Aqui você faria a chamada para a API do backend Java
     console.log('Updating admin settings:', newSettings);
   };
 
@@ -413,7 +439,36 @@ function App() {
       {isWindows ? (
         <div className="titlebar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px', height: '32px', '-webkit-app-region': 'drag' } as any}>
           <div className="window-title">do-pop</div>
-          <div style={{ display: 'flex', gap: '1px', '-webkit-app-region': 'no-drag' } as any}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', '-webkit-app-region': 'no-drag' } as any}>
+            <button 
+              className="admin-gear-btn"
+              onClick={goToAdminAuth}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'rgba(255, 255, 255, 0.5)',
+                fontSize: '12px',
+                cursor: 'pointer',
+                padding: '4px',
+                borderRadius: '3px',
+                transition: 'all 0.2s ease',
+                minWidth: '24px',
+                height: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              } as any}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'rgba(255, 255, 255, 0.8)';
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'rgba(255, 255, 255, 0.5)';
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              ⚙️
+            </button>
             <button onClick={() => appWindow.minimize()} style={{ minWidth: '28px' }}><span>–</span></button>
             <button onClick={() => appWindow.toggleMaximize()} style={{ minWidth: '28px' }}>+</button>
             <button onClick={() => appWindow.close()} style={{ minWidth: '28px' }}>×</button>
@@ -421,8 +476,8 @@ function App() {
         </div>
       ) : (
         <div className="titlebar" data-tauri-drag-region>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div className="window-title">do-pop</div>
+          <div className="window-title">do-pop</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', '-webkit-app-region': 'no-drag' } as any}>
             <button 
               className="admin-gear-btn"
               onClick={goToAdminAuth}
@@ -1124,6 +1179,108 @@ function App() {
 
       </div>
 
+      {/* Modal de Confirmação de Exclusão */}
+      {showDeleteModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          backdropFilter: 'blur(5px)'
+        }}>
+          <div style={{
+            background: 'rgba(28, 28, 30, 0.95)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '12px',
+            padding: '2rem',
+            maxWidth: '400px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+          }}>
+            <div style={{
+              width: '60px',
+              height: '60px',
+              backgroundColor: 'rgba(255, 85, 85, 0.2)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 20px auto',
+              fontSize: '24px',
+              color: '#ff5555'
+            }}>
+              ⚠️
+            </div>
+            
+            <h2 style={{
+              color: 'white',
+              fontSize: '18px',
+              fontWeight: '500',
+              marginBottom: '12px'
+            }}>
+              Confirmar Exclusão
+            </h2>
+            
+            <p style={{
+              color: 'rgba(255, 255, 255, 0.7)',
+              fontSize: '14px',
+              marginBottom: '24px',
+              lineHeight: '1.4'
+            }}>
+              Tem certeza que deseja excluir este POP? Esta ação não pode ser desfeita.
+            </p>
+            
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'center'
+            }}>
+              <button 
+                className="button-voltar"
+                onClick={cancelDeletePop}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px'
+                }}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={confirmDeletePop}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  backgroundColor: 'rgba(255, 85, 85, 0.2)',
+                  border: '1px solid rgba(255, 85, 85, 0.4)',
+                  color: '#ff8a8a',
+                  borderRadius: '7px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255, 85, 85, 0.3)';
+                  e.currentTarget.style.color = '#ff6666';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255, 85, 85, 0.2)';
+                  e.currentTarget.style.color = '#ff8a8a';
+                }}
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <footer className="macos-footer">
         <div className="footer-middle">
           © {adminSettings.companyName}. Todos os direitos reservados.
@@ -1134,7 +1291,3 @@ function App() {
 }
 
 export default App;
-
-function setIsAuthenticated(arg0: boolean) {
-  throw new Error('Function not implemented.');
-}
