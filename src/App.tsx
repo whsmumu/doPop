@@ -4,16 +4,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { Window } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
 import { pictureDir } from '@tauri-apps/api/path';
-import React from 'react';
 
-// Tipos
-type PopCategory = 
-  | "Sistêmico" 
-  | "Processual" 
-  | "Cadastro" 
-  | "Alteração" 
-  | "Consulta"
-  | "Relatório";
+type PopCategory = "";
 
 type Step = {
   id: number;
@@ -43,11 +35,23 @@ type AdminSettings = {
   categoriesBySector: { [sector: string]: PopCategory[] };
 };
 
+type ConfirmationModal = {
+  isOpen: boolean;
+  type: 'deletePop' | 'deleteCategory' | 'saveSuccess' | 'addCategory' | null;
+  title: string;
+  message: string;
+  itemId?: number | null;
+  sectorName?: string;
+  categoryIndex?: number;
+  inputValue?: string;
+  onConfirm: (inputValue?: string) => void;
+  onCancel: () => void;
+};
+
 function App() {
   const [platform, setPlatform] = useState('');
   const [currentPage, setCurrentPage] = useState('welcome');
 
-  // Estados dos dados do POP
   const [selectedSector, setSelectedSector] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<PopCategory | ''>('');
   const [popTitle, setPopTitle] = useState('');
@@ -55,16 +59,13 @@ function App() {
   const [steps, setSteps] = useState<Step[]>([{ id: Date.now(), description: '', image: null }]);
   const [editingPopId, setEditingPopId] = useState<number | null>(null);
 
-  // Estados para certificação
   const [author, setAuthor] = useState('');
   const [reviewer, setReviewer] = useState('');
   const [version, setVersion] = useState('');
   const [createdAt, setCreatedAt] = useState<string | null>(null);
 
-  // Estados para dropdown de categoria
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
 
-  // Estados para autenticação
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentAuthSector, setCurrentAuthSector] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
@@ -72,51 +73,57 @@ function App() {
   const [popsInSector, setPopsInSector] = useState<PopData[]>([]);
   const [isLoadingPops, setIsLoadingPops] = useState(false);
 
-  // Estados para configurações de admin
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [adminError, setAdminError] = useState('');
 
-  // Estados para salvar
   const [saveStatus, setSaveStatus] = useState<'loading' | 'success' | 'error' | null>(null);
   const [saveMessage, setSaveMessage] = useState('');
 
-  // Estados para modal de confirmação
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [popToDelete, setPopToDelete] = useState<number | null>(null);
+  const [confirmationModal, setConfirmationModal] = useState<ConfirmationModal>({
+    isOpen: false,
+    type: null,
+    title: '',
+    message: '',
+    itemId: null,
+    sectorName: '',
+    categoryIndex: -1,
+    onConfirm: () => { },
+    onCancel: () => { }
+  });
 
-  // Configurações locais (temporárias até backend estar pronto)
   const [adminSettings, setAdminSettings] = useState<AdminSettings>({
     companyName: "Novo Mix Supermercados",
     sectorPasswords: {
-      "Administrativo": "admin123",
-      "Comercial": "admin123",
-      "Fiscal": "admin123",
-      "Financeiro": "admin123",
-      "TI": "admin123",
-      "RH": "admin123",
-      "Logística": "admin123",
-      "Controles Internos": "admin123",
-      "Manutenção": "admin123"
+      "Administrativo": "@novomix@",
+      "Comercial": "@novomix@",
+      "Fiscal": "@novomix@",
+      "Financeiro": "@novomix@",
+      "TI": "@novomix@",
+      "RH": "@novomix@",
+      "Logística": "@novomix@",
+      "Controles Internos": "@novomix@",
+      "Manutenção": "@novomix@",
+      "Recepção": "@novomix@"
     },
-    adminPassword: "master123",
+    adminPassword: "#admin#",
     categoriesBySector: {
-      "Administrativo": ["Cadastro", "Alteração", "Consulta", "Processual"],
-      "Comercial": ["Sistêmico", "Processual", "Consulta", "Relatório"],
-      "Fiscal": ["Cadastro", "Alteração", "Relatório", "Processual"],
-      "Financeiro": ["Processual", "Relatório", "Consulta", "Sistêmico"],
-      "TI": ["Sistêmico", "Processual", "Alteração", "Cadastro"],
-      "RH": ["Cadastro", "Processual", "Consulta", "Alteração"],
-      "Logística": ["Processual", "Sistêmico", "Consulta", "Relatório"],
-      "Controles Internos": ["Processual", "Relatório", "Consulta", "Sistêmico"],
-      "Manutenção": ["Processual", "Sistêmico", "Alteração", "Cadastro"]
+      "Administrativo": [],
+      "Comercial": [],
+      "Fiscal": [],
+      "Financeiro": [],
+      "TI": [],
+      "RH": [],
+      "Logística": [],
+      "Controles Internos": [],
+      "Manutenção": [],
+      "Recepção": []
     }
   });
 
   useEffect(() => {
     invoke('get_platform').then((p: unknown) => setPlatform(p as string));
 
-    // Fechar dropdown quando clica fora
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (!target.closest('.dropdown-container')) {
@@ -133,69 +140,8 @@ function App() {
   const isWindows = platform === 'windows';
   const appWindow = Window.getCurrent();
 
-  const setores = ["Administrativo", "Comercial", "Fiscal", "Financeiro", "TI", "RH", "Logística", "Controles Internos", "Manutenção"];
+  const setores = ["Administrativo", "Comercial", "Fiscal", "Financeiro", "TI", "RH", "Logística", "Controles Internos", "Manutenção", "Recepção"];
 
-  // --- API Functions (Mock - substituir por chamadas reais) ---
-  const apiService = {
-    async createPop(popData: PopData): Promise<{success: boolean, data?: PopData, error?: string}> {
-      // Mock - substituir por fetch real para seu backend Java
-      console.log('Creating POP:', popData);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // Aqui você faria: const response = await fetch('http://localhost:8080/api/pops', {...})
-      return { success: true, data: { ...popData, id: Date.now() } };
-    },
-
-    async updatePop(id: number, popData: PopData): Promise<{success: boolean, data?: PopData, error?: string}> {
-      console.log('Updating POP:', id, popData);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // Aqui você faria: const response = await fetch(`http://localhost:8080/api/pops/${id}`, {...})
-      return { success: true, data: { ...popData, id } };
-    },
-
-    async deletePop(id: number): Promise<{success: boolean, error?: string}> {
-      console.log('Deleting POP:', id);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      // Aqui você faria: const response = await fetch(`http://localhost:8080/api/pops/${id}`, {method: 'DELETE'})
-      return { success: true };
-    },
-
-    async getPopsBySector(sector: string): Promise<{success: boolean, data?: PopData[], error?: string}> {
-      console.log('Getting POPs for sector:', sector);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      // Mock data - substituir por chamada real
-      const mockPops: PopData[] = [
-        {
-          id: 1,
-          sector,
-          category: "Processual",
-          title: "Como fazer backup do sistema",
-          description: "Procedimento para realizar backup diário",
-          steps: [{ id: 1, description: "Acessar o sistema", image: null }],
-          author: "João Silva",
-          reviewer: "Maria Santos",
-          version: "1.0.0",
-          createdAt: new Date().toISOString(),
-          lastUpdated: new Date().toISOString(),
-          isActive: true
-        }
-      ];
-      return { success: true, data: mockPops };
-    },
-
-    async validateSectorPassword(sector: string, password: string): Promise<{success: boolean, error?: string}> {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      const isValid = adminSettings.sectorPasswords[sector] === password;
-      return { success: isValid, error: isValid ? undefined : "Senha incorreta" };
-    },
-
-    async validateAdminPassword(password: string): Promise<{success: boolean, error?: string}> {
-      await new Promise(resolve => setTimeout(resolve, 300));
-      const isValid = adminSettings.adminPassword === password;
-      return { success: isValid, error: isValid ? undefined : "Senha de administrador incorreta" };
-    }
-  };
-
-  // --- Navigation Functions ---
   const goToWelcome = () => {
     setCurrentPage('welcome');
     resetAllStates();
@@ -204,12 +150,12 @@ function App() {
   const goToAbout = () => setCurrentPage('about');
   const goToChoice = () => setCurrentPage('choice');
   const goToSectorSelection = () => setCurrentPage('sectorSelection');
-  
+
   const goToSectorAuth = (sector: string) => {
     setCurrentAuthSector(sector);
     setCurrentPage('sectorAuth');
   };
-  
+
   const goToPopManagement = () => setCurrentPage('popManagement');
 
   const goToSector = () => {
@@ -226,7 +172,6 @@ function App() {
   const goToAdminConfig = () => setCurrentPage('adminConfig');
   const goToAdminAuth = () => setCurrentPage('adminAuth');
 
-  // Reset functions
   const resetAllStates = () => {
     setSelectedSector('');
     setSelectedCategory('');
@@ -249,51 +194,53 @@ function App() {
     setAdminPasswordInput('');
     setAdminError('');
     setIsCategoryDropdownOpen(false);
-    setShowDeleteModal(false);
-    setPopToDelete(null);
+    setConfirmationModal({
+      isOpen: false,
+      type: null,
+      title: '',
+      message: '',
+      itemId: null,
+      sectorName: '',
+      categoryIndex: -1,
+      inputValue: '',
+      onConfirm: () => { },
+      onCancel: () => { }
+    });
   };
 
-  // --- Authentication Functions ---
+
   const handleSectorAuth = async () => {
-    try {
-      const result = await apiService.validateSectorPassword(currentAuthSector, passwordInput);
-      if (result.success) {
-        setIsAuthenticated(true);
-        setAuthError('');
-        setPasswordInput('');
-        loadPopsForSector(currentAuthSector);
-      } else {
-        setAuthError(result.error || 'Senha incorreta');
-      }
-    } catch (error) {
-      setAuthError('Erro de conexão');
+    const isValid = adminSettings.sectorPasswords[currentAuthSector] === passwordInput;
+
+    if (isValid) {
+      setIsAuthenticated(true);
+      setAuthError('');
+      setPasswordInput('');
+      loadPopsForSector(currentAuthSector);
+    } else {
+      setAuthError('Senha incorreta');
     }
   };
 
   const handleAdminAuth = async () => {
-    try {
-      const result = await apiService.validateAdminPassword(adminPasswordInput);
-      if (result.success) {
-        setIsAdminMode(true);
-        setAdminError('');
-        setAdminPasswordInput('');
-        goToAdminConfig();
-      } else {
-        setAdminError(result.error || 'Senha incorreta');
-      }
-    } catch (error) {
-      setAdminError('Erro de conexão');
+    const isValid = adminSettings.adminPassword === adminPasswordInput;
+
+    if (isValid) {
+      setIsAdminMode(true);
+      setAdminError('');
+      setAdminPasswordInput('');
+      goToAdminConfig();
+    } else {
+      setAdminError('Senha de administrador incorreta');
     }
   };
 
-  // --- POP Management Functions ---
   const loadPopsForSector = async (sector: string) => {
     setIsLoadingPops(true);
     try {
-      const result = await apiService.getPopsBySector(sector);
-      if (result.success && result.data) {
-        setPopsInSector(result.data);
-      }
+      // TODO: Implementar busca real no backend
+      // const result = await fetch(`/api/pops/sector/${sector}`);
+      setPopsInSector([]); // Por enquanto lista vazia até implementar backend
     } catch (error) {
       console.error('Error loading POPs:', error);
     } finally {
@@ -316,35 +263,69 @@ function App() {
     goToSector();
   };
 
-  const handleDeletePop = async (id: number) => {
-    setPopToDelete(id);
-    setShowDeleteModal(true);
+  const handleDeletePop = (id: number) => {
+    setConfirmationModal({
+      isOpen: true,
+      type: 'deletePop',
+      title: 'Confirmar Exclusão',
+      message: 'Tem certeza que deseja excluir?',
+      itemId: id,
+      onConfirm: () => confirmDeletePop(id),
+      onCancel: cancelModal
+    });
   };
 
-  const confirmDeletePop = async () => {
-    if (popToDelete) {
-      try {
-        const result = await apiService.deletePop(popToDelete);
-        if (result.success) {
-          setPopsInSector(pops => pops.filter(pop => pop.id !== popToDelete));
-        }
-      } catch (error) {
-        console.error('Error deleting POP:', error);
-      }
+  const confirmDeletePop = async (id: number) => {
+    try {
+      // TODO: Implementar exclusão real no backend
+      // await fetch(`/api/pops/${id}`, { method: 'DELETE' });
+      setPopsInSector(pops => pops.filter(pop => pop.id !== id));
+      setConfirmationModal({
+        ...confirmationModal,
+        isOpen: false
+      });
+    } catch (error) {
+      console.error('Error deleting POP:', error);
     }
-    setShowDeleteModal(false);
-    setPopToDelete(null);
   };
 
-  const cancelDeletePop = () => {
-    setShowDeleteModal(false);
-    setPopToDelete(null);
+  const handleDeleteCategory = (sectorName: string, categoryIndex: number, categoryName: string) => {
+    setConfirmationModal({
+      isOpen: true,
+      type: 'deleteCategory',
+      title: 'Confirmar Exclusão de Categoria',
+      message: `Tem certeza que deseja remover a categoria "${categoryName}"?`,
+      sectorName,
+      categoryIndex,
+      onConfirm: () => confirmDeleteCategory(sectorName, categoryIndex),
+      onCancel: cancelModal
+    });
   };
 
-  // --- Form Handlers ---
+  const confirmDeleteCategory = (sectorName: string, categoryIndex: number) => {
+    setAdminSettings({
+      ...adminSettings,
+      categoriesBySector: {
+        ...adminSettings.categoriesBySector,
+        [sectorName]: adminSettings.categoriesBySector[sectorName].filter((_, i) => i !== categoryIndex)
+      }
+    });
+
+    setConfirmationModal({
+      ...confirmationModal,
+      isOpen: false
+    });
+  };
+
+  const cancelModal = () => {
+    setConfirmationModal({
+      ...confirmationModal,
+      isOpen: false
+    });
+  };
+
   const handleSectorChange = (event: ChangeEvent<HTMLInputElement>) => {
     setSelectedSector(event.target.value);
-    // Reset da categoria quando muda de setor
     setSelectedCategory('');
     setIsCategoryDropdownOpen(false);
   };
@@ -380,9 +361,7 @@ function App() {
     }
   };
 
-  // --- Save Function ---
   const handleFinalSubmit = async () => {
-    // Primeiro navegar para a página de salvamento
     setCurrentPage('saving');
     setSaveStatus('loading');
     setSaveMessage('Salvando procedimento...');
@@ -402,35 +381,83 @@ function App() {
         isActive: true
       };
 
-      let result;
+      // TODO: Implementar chamadas reais para o backend
       if (editingPopId) {
-        result = await apiService.updatePop(editingPopId, popData);
+        // await fetch(`/api/pops/${editingPopId}`, { method: 'PUT', body: JSON.stringify(popData) });
         setSaveMessage('Procedimento atualizado com sucesso!');
       } else {
-        result = await apiService.createPop(popData);
+        // await fetch('/api/pops', { method: 'POST', body: JSON.stringify(popData) });
         setSaveMessage('Procedimento criado com sucesso!');
       }
 
-      if (result.success) {
-        setSaveStatus('success');
-        setTimeout(() => {
-          resetAllStates();
-          goToWelcome();
-        }, 3000);
-      } else {
-        throw new Error(result.error || 'Erro desconhecido');
-      }
+      setSaveStatus('success');
+      setTimeout(() => {
+        resetAllStates();
+        goToWelcome();
+      }, 3000);
+
     } catch (error) {
       setSaveStatus('error');
       setSaveMessage(`Erro ao salvar: ${error}`);
     }
   };
 
-  // Admin Settings Functions
   const handleUpdateAdminSettings = (newSettings: AdminSettings) => {
     setAdminSettings(newSettings);
-    // Aqui você faria a chamada para a API do backend Java
-    console.log('Updating admin settings:', newSettings);
+    // TODO: Implementar chamada real para o backend
+    // await fetch('/api/settings', { method: 'PUT', body: JSON.stringify(newSettings) });
+
+    // Exibir modal de sucesso
+    setConfirmationModal({
+      isOpen: true,
+      type: 'saveSuccess',
+      title: 'Configurações Salvas',
+      message: 'As configurações do sistema foram salvas com sucesso!',
+      onConfirm: () => {
+        setConfirmationModal({
+          ...confirmationModal,
+          isOpen: false
+        });
+      },
+      onCancel: () => {
+        setConfirmationModal({
+          ...confirmationModal,
+          isOpen: false
+        });
+      }
+    });
+  };
+
+  const addCategoryToSector = (sectorName: string) => {
+    setConfirmationModal({
+      isOpen: true,
+      type: 'addCategory',
+      title: 'Adicionar Nova Categoria',
+      message: `Digite o nome da categoria:`,
+      sectorName: sectorName,
+      inputValue: '',
+      onConfirm: (inputValue) => {
+        if (inputValue && inputValue.trim() && !adminSettings.categoriesBySector[sectorName]?.includes(inputValue.trim() as PopCategory)) {
+          setAdminSettings({
+            ...adminSettings,
+            categoriesBySector: {
+              ...adminSettings.categoriesBySector,
+              [sectorName]: [...(adminSettings.categoriesBySector[sectorName] || []), inputValue.trim() as PopCategory]
+            }
+          });
+        }
+        setConfirmationModal({
+          ...confirmationModal,
+          isOpen: false
+        });
+      },
+      onCancel: () => {
+        setConfirmationModal({
+          ...confirmationModal,
+          isOpen: false
+        });
+      }
+    });
   };
 
   return (
@@ -439,8 +466,8 @@ function App() {
       {isWindows ? (
         <div className="titlebar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 8px', height: '32px', '-webkit-app-region': 'drag' } as any}>
           <div className="window-title">do-pop</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', '-webkit-app-region': 'no-drag' } as any}>
-            <button 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', '-webkit-app-region': 'no-drag' } as any}>
+            <button
               className="admin-gear-btn"
               onClick={goToAdminAuth}
               style={{
@@ -450,13 +477,13 @@ function App() {
                 fontSize: '12px',
                 cursor: 'pointer',
                 padding: '4px',
-                borderRadius: '3px',
+                borderRadius: '6px',
                 transition: 'all 0.2s ease',
-                minWidth: '24px',
+                minWidth: '28px',
                 height: '24px',
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                alignItems: 'flex-end',
+                marginTop: '4px'
               } as any}
               onMouseEnter={(e) => {
                 e.currentTarget.style.color = 'rgba(255, 255, 255, 0.8)';
@@ -467,7 +494,7 @@ function App() {
                 e.currentTarget.style.backgroundColor = 'transparent';
               }}
             >
-              ⚙️
+              ⚙︎
             </button>
             <button onClick={() => appWindow.minimize()} style={{ minWidth: '28px' }}><span>–</span></button>
             <button onClick={() => appWindow.toggleMaximize()} style={{ minWidth: '28px' }}>+</button>
@@ -478,7 +505,7 @@ function App() {
         <div className="titlebar" data-tauri-drag-region>
           <div className="window-title">do-pop</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', '-webkit-app-region': 'no-drag' } as any}>
-            <button 
+            <button
               className="admin-gear-btn"
               onClick={goToAdminAuth}
               style={{
@@ -487,9 +514,14 @@ function App() {
                 color: 'rgba(255, 255, 255, 0.5)',
                 fontSize: '12px',
                 cursor: 'pointer',
-                padding: '2px',
-                borderRadius: '3px',
+                padding: '4px',
+                borderRadius: '6px',
                 transition: 'all 0.2s ease',
+                minWidth: '28px',
+                height: '24px',
+                display: 'flex',
+                alignItems: 'flex-end',
+                marginTop: '4px',
                 '-webkit-app-region': 'no-drag'
               } as any}
               onMouseEnter={(e) => {
@@ -501,7 +533,7 @@ function App() {
                 e.currentTarget.style.backgroundColor = 'transparent';
               }}
             >
-              ⚙️
+              ⚙︎
             </button>
           </div>
         </div>
@@ -522,7 +554,19 @@ function App() {
           <div className="page-content">
             <h1>Como funciona?</h1>
             <p style={{ maxWidth: '70%', textAlign: 'center' }}>
-              Este aplicativo vai te ajudar a <strong>documentar</strong>, <strong>gerenciar</strong> e <strong>padronizar</strong> todos os procedimentos operacionais padrão do seu setor, através de passos detalhados e com imagens para melhor entendimento.
+              Este aplicativo vai te ajudar a <strong><strong>documentar</strong></strong>, <strong><strong>gerenciar</strong></strong> e <strong><strong>padronizar</strong></strong> todos os procedimentos operacionais padrão do seu setor.
+            </p>
+            <p>
+              Qualquer dúvida, {' '}
+              <a
+                href="http://192.168.130.125/" /* link do glpi */
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: '#64affaff', textDecoration: 'none' }}
+              >
+
+                clique aqui.
+              </a>
             </p>
           </div>
           <div className="button-group">
@@ -535,12 +579,13 @@ function App() {
         <div className={`page ${currentPage !== 'choice' ? 'hidden' : ''}`}>
           <div className="page-content">
             <h1>Escolha uma opção:</h1>
-            <p>Crie um novo procedimento operacional padrão <p>ou gerencie os procedimentos existentes.</p></p>
+            <p>Selecione uma opção para <strong><strong>criar</strong></strong> um novo procedimento operacional padrão<p>ou <strong><strong>editar</strong></strong> um procedimento operacional existente do seu setor</p> </p>
           </div>
           <div className="button-group">
             <button className="button-voltar" onClick={goToAbout}>Voltar</button>
+            <button className="button-iniciar" onClick={goToSectorSelection}>Editar</button>
             <button className="button-iniciar" onClick={goToSector}>Criar</button>
-            <button className="button-iniciar" onClick={goToSectorSelection}>Gerenciar</button>
+
           </div>
         </div>
 
@@ -556,7 +601,7 @@ function App() {
               ))}
             </div>
           </div>
-          <div className="button-group2">
+          <div className="button-group10">
             <button className="button-voltar" onClick={goToChoice}>Voltar</button>
           </div>
         </div>
@@ -564,8 +609,7 @@ function App() {
         {/* Página 5: Autenticação do Setor */}
         <div className={`page ${currentPage !== 'sectorAuth' ? 'hidden' : ''}`}>
           <div className="page-content">
-            <h1>Acesso ao setor: {currentAuthSector}</h1>
-            <p>Digite a senha para acessar os POPs deste setor:</p>
+            <h1>{currentAuthSector}</h1>
             <div className="form-container-vertical" style={{ maxWidth: '300px' }}>
               <input
                 type="password"
@@ -576,7 +620,7 @@ function App() {
                 onKeyPress={(e) => e.key === 'Enter' && handleSectorAuth()}
               />
               {authError && (
-                <p style={{ color: 'rgba(255, 85, 85, 0.9)', fontSize: '14px', margin: '10px 0 0 0' }}>
+                <p style={{ color: 'rgba(255, 85, 85, 0.9)', fontSize: '14px', margin: '-14px 0 0 0' }}>
                   {authError}
                 </p>
               )}
@@ -594,9 +638,9 @@ function App() {
         <div className={`page ${currentPage !== 'popManagement' ? 'hidden' : ''}`}>
           <div className="page-content-full">
             <div className="steps-header">
-              <h1>POPs do setor: {currentAuthSector}</h1>
+              <h1>POPs {currentAuthSector}</h1>
               <button className="button-add-step" onClick={goToSector}>
-                + Criar Novo POP
+                +
               </button>
             </div>
             <div className="steps-list-container">
@@ -615,8 +659,7 @@ function App() {
                 </div>
               ) : popsInSector.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '2rem' }}>
-                  <p>Nenhum POP encontrado neste setor.</p>
-                  <p style={{ fontSize: '14px', opacity: 0.7 }}>Clique em "Criar Novo POP" para começar.</p>
+                  <p style={{ fontSize: '14px', opacity: 0.7 }}>Clique em "+" para começar.</p>
                 </div>
               ) : (
                 popsInSector.map((pop) => (
@@ -640,13 +683,13 @@ function App() {
                       </p>
                     </div>
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      <button 
+                      <button
                         className="button-image"
                         onClick={() => handleEditPop(pop)}
                       >
                         Editar
                       </button>
-                      <button 
+                      <button
                         className="button-remove"
                         onClick={() => handleDeletePop(pop.id!)}
                       >
@@ -683,7 +726,7 @@ function App() {
             </div>
           </div>
           <div className="button-group2">
-            <button className="button-voltar" onClick={isAuthenticated && !editingPopId ? goToPopManagement : goToChoice}>
+            <button className="button-voltar" onClick={isAuthenticated && !editingPopId ? goToChoice : goToChoice}>
               Voltar
             </button>
             <button className="button-continuar" onClick={goToPopDetails} disabled={!selectedSector}>Continuar</button>
@@ -720,7 +763,7 @@ function App() {
                     onChange={(e) => setPopDescription(e.target.value)}
                   />
                 </div>
-                
+
                 <div className="form-group">
                   <label>Selecione a categoria</label>
                   <div className="dropdown-container" style={{ position: 'relative' }}>
@@ -749,9 +792,9 @@ function App() {
                         ▼
                       </span>
                     </button>
-                    
+
                     {isCategoryDropdownOpen && (
-                      <div 
+                      <div
                         className="dropdown-menu"
                         style={{
                           position: 'absolute',
@@ -817,9 +860,9 @@ function App() {
           </div>
           <div className="button-group3">
             <button className="button-voltar" onClick={() => setCurrentPage('sector')}>Voltar</button>
-            <button 
-              className="button-continuar" 
-              onClick={goToSteps} 
+            <button
+              className="button-continuar"
+              onClick={goToSteps}
               disabled={!popTitle || !popDescription || !selectedCategory}
             >
               Continuar
@@ -1005,8 +1048,7 @@ function App() {
         {/* Página 12: Autenticação do Administrador */}
         <div className={`page ${currentPage !== 'adminAuth' ? 'hidden' : ''}`}>
           <div className="page-content">
-            <h1>Acesso de Administrador</h1>
-            <p>Digite a senha de administrador para acessar as configurações:</p>
+            <h1>Painel administrativo </h1>
             <div className="form-container-vertical" style={{ maxWidth: '300px' }}>
               <input
                 type="password"
@@ -1023,7 +1065,7 @@ function App() {
               )}
             </div>
           </div>
-          <div className="button-group2">
+          <div className="button-group11">
             <button className="button-voltar" onClick={goToWelcome}>Voltar</button>
             <button className="button-continuar" onClick={handleAdminAuth} disabled={!adminPasswordInput}>
               Acessar
@@ -1035,13 +1077,13 @@ function App() {
         <div className={`page ${currentPage !== 'adminConfig' ? 'hidden' : ''}`}>
           <div className="page-content-full">
             <div className="steps-header">
-              <h1>Configurações do Sistema</h1>
+              <h1>Configurações do sistema</h1>
             </div>
             <div className="steps-list-container">
-              
+
               {/* Configuração do Nome da Empresa */}
               <div className="config-section">
-                <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px' }}>Nome da Empresa</h3>
+                <h3 style={{ color: 'white', marginBottom: '6px', fontSize: '14px', paddingLeft: '2px' }}>Nome da Empresa</h3>
                 <input
                   type="text"
                   className="input-field"
@@ -1050,33 +1092,42 @@ function App() {
                     ...adminSettings,
                     companyName: e.target.value
                   })}
-                  placeholder="Nome da empresa"
+                  placeholder="Digite o mome da sua empresa"
                 />
               </div>
 
               {/* Configuração da Senha de Administrador */}
-              <div className="config-section" style={{ marginTop: '30px' }}>
-                <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px' }}>Senha de Administrador</h3>
+              <div className="config-section" style={{ marginTop: '-40px' }}>
+                <h3 style={{ color: 'white', marginBottom: '6px', fontSize: '14px', paddingLeft: '2px' }}>Senha de Administrador</h3>
                 <input
                   type="password"
                   className="input-field"
                   value={adminSettings.adminPassword}
+                 
                   onChange={(e) => setAdminSettings({
                     ...adminSettings,
                     adminPassword: e.target.value
                   })}
-                  placeholder="Nova senha de administrador"
+                  placeholder="Digite a nova senha de administrador"
+                />
+                <hr
+                  style={{
+                    border: 'none',           
+                    borderTop: '1px solid #676767ff', 
+                    width: '80%',        
+                    margin: '20px auto'     
+                  }}
                 />
               </div>
 
               {/* Configuração das Senhas dos Setores */}
-              <div className="config-section" style={{ marginTop: '30px' }}>
-                <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px' }}>Senhas dos Setores</h3>
+              <div className="config-section" style={{ marginTop: '-25px' }}>
+                <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px' }}>Gerenciamento por setor (senhas)</h3>
                 {setores.map((setor) => (
                   <div key={setor} style={{ marginBottom: '15px' }}>
-                    <label style={{ 
-                      color: 'rgba(255, 255, 255, 0.7)', 
-                      fontSize: '14px', 
+                    <label style={{
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontSize: '14px',
                       marginBottom: '5px',
                       display: 'block'
                     }}>
@@ -1097,34 +1148,32 @@ function App() {
                     />
                   </div>
                 ))}
+
+                 <hr
+                  style={{
+                    border: 'none',           
+                    borderTop: '1px solid #676767ff', 
+                    width: '80%',        
+                    margin: '20px auto'     
+                  }}
+                />
               </div>
 
               {/* Configuração das Categorias por Setor */}
-              <div className="config-section" style={{ marginTop: '30px' }}>
+              <div className="config-section" style={{ marginTop: '-25px' }}>
                 <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px' }}>Categorias por Setor</h3>
                 {setores.map((setor) => (
-                  <div key={setor} style={{ marginBottom: '25px' }}>
+                  <div key={setor} style={{ marginBottom: '15px' }}>
                     <div className="sector-header">
                       <h4 className="sector-title">{setor}</h4>
-                      <button 
+                      <button
                         className="button-add-step add-category-btn"
-                        onClick={() => {
-                          const newCategory = prompt(`Nova categoria para ${setor}:`);
-                          if (newCategory && !adminSettings.categoriesBySector[setor]?.includes(newCategory as PopCategory)) {
-                            setAdminSettings({
-                              ...adminSettings,
-                              categoriesBySector: {
-                                ...adminSettings.categoriesBySector,
-                                [setor]: [...(adminSettings.categoriesBySector[setor] || []), newCategory as PopCategory]
-                              }
-                            });
-                          }
-                        }}
+                        onClick={() => addCategoryToSector(setor)}
                       >
                         + Adicionar
                       </button>
                     </div>
-                    
+
                     <div className="sector-categories-grid">
                       {(adminSettings.categoriesBySector[setor] && adminSettings.categoriesBySector[setor].length > 0) ? (
                         adminSettings.categoriesBySector[setor].map((category, index) => (
@@ -1133,17 +1182,7 @@ function App() {
                             {adminSettings.categoriesBySector[setor].length > 1 && (
                               <button
                                 className="button-remove"
-                                onClick={() => {
-                                  if (window.confirm(`Remover categoria "${category}" do setor ${setor}?`)) {
-                                    setAdminSettings({
-                                      ...adminSettings,
-                                      categoriesBySector: {
-                                        ...adminSettings.categoriesBySector,
-                                        [setor]: adminSettings.categoriesBySector[setor].filter((_, i) => i !== index)
-                                      }
-                                    });
-                                  }
-                                }}
+                                onClick={() => handleDeleteCategory(setor, index, category)}
                                 style={{ fontSize: '10px', padding: '2px 6px' }}
                               >
                                 ×
@@ -1163,24 +1202,21 @@ function App() {
 
             </div>
           </div>
-          <div className="button-group4">
-            <button className="button-voltar" onClick={goToWelcome}>Sair das Configurações</button>
-            <button 
+          <div className="button-group12">
+            <button className="button-voltar" onClick={goToWelcome}>Cancelar</button>
+            <button
               className="button-continuar"
-              onClick={() => {
-                handleUpdateAdminSettings(adminSettings);
-                alert('Configurações salvas com sucesso!');
-              }}
+              onClick={() => handleUpdateAdminSettings(adminSettings)}
             >
-              Salvar Configurações
+              Salvar
             </button>
           </div>
         </div>
 
       </div>
 
-      {/* Modal de Confirmação de Exclusão */}
-      {showDeleteModal && (
+      {/* Modal de Confirmação Unificado */}
+      {confirmationModal.isOpen && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -1208,73 +1244,147 @@ function App() {
             <div style={{
               width: '60px',
               height: '60px',
-              backgroundColor: 'rgba(255, 85, 85, 0.2)',
+              backgroundColor:
+                confirmationModal.type === 'saveSuccess' ? 'rgba(76, 175, 80, 0.2)' :
+                  confirmationModal.type === 'addCategory' ? 'rgba(73, 102, 198, 0.2)' :
+                    'rgba(255, 85, 85, 0.2)',
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               margin: '0 auto 20px auto',
               fontSize: '24px',
-              color: '#ff5555'
+              color:
+                confirmationModal.type === 'saveSuccess' ? '#4CAF50' :
+                  confirmationModal.type === 'addCategory' ? '#4966c6' :
+                    '#ff5555'
             }}>
-              ⚠️
+              {confirmationModal.type === 'saveSuccess' ? '✓' :
+                confirmationModal.type === 'addCategory' ? '+' : '⚠️'}
             </div>
-            
+
             <h2 style={{
               color: 'white',
               fontSize: '18px',
               fontWeight: '500',
               marginBottom: '12px'
             }}>
-              Confirmar Exclusão
+              {confirmationModal.title}
             </h2>
-            
+
             <p style={{
               color: 'rgba(255, 255, 255, 0.7)',
               fontSize: '14px',
-              marginBottom: '24px',
+              marginBottom: confirmationModal.type === 'addCategory' ? '16px' : '24px',
               lineHeight: '1.4'
             }}>
-              Tem certeza que deseja excluir este POP? Esta ação não pode ser desfeita.
+              {confirmationModal.message}
             </p>
-            
+
+            {/* Input para adicionar categoria */}
+            {confirmationModal.type === 'addCategory' && (
+              <input
+                type="text"
+                className="input-field"
+                placeholder="Nome da categoria"
+                value={confirmationModal.inputValue || ''}
+                onChange={(e) => setConfirmationModal({
+                  ...confirmationModal,
+                  inputValue: e.target.value
+                })}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && confirmationModal.inputValue?.trim()) {
+                    confirmationModal.onConfirm(confirmationModal.inputValue.trim());
+                  }
+                }}
+                style={{
+                  marginBottom: '24px',
+                  width: '100%'
+                }}
+                autoFocus
+              />
+            )}
+
             <div style={{
               display: 'flex',
               gap: '12px',
               justifyContent: 'center'
             }}>
-              <button 
-                className="button-voltar"
-                onClick={cancelDeletePop}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '14px'
+              {confirmationModal.type !== 'saveSuccess' && (
+                <button
+                  className="button-voltar"
+                  onClick={confirmationModal.onCancel}
+                  style={{
+                    padding: '10px 20px',
+                    fontSize: '14px'
+                  }}
+                >
+                  Cancelar
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  if (confirmationModal.type === 'addCategory') {
+                    confirmationModal.onConfirm(confirmationModal.inputValue?.trim());
+                  } else {
+                    confirmationModal.onConfirm();
+                  }
                 }}
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={confirmDeletePop}
+                disabled={confirmationModal.type === 'addCategory' && !confirmationModal.inputValue?.trim()}
                 style={{
                   padding: '10px 20px',
                   fontSize: '14px',
-                  backgroundColor: 'rgba(255, 85, 85, 0.2)',
-                  border: '1px solid rgba(255, 85, 85, 0.4)',
-                  color: '#ff8a8a',
+                  backgroundColor:
+                    confirmationModal.type === 'saveSuccess' ? 'rgba(76, 175, 80, 0.2)' :
+                      confirmationModal.type === 'addCategory' ? 'rgba(73, 102, 198, 0.2)' :
+                        'rgba(255, 85, 85, 0.2)',
+                  border:
+                    confirmationModal.type === 'saveSuccess' ? '1px solid rgba(76, 175, 80, 0.4)' :
+                      confirmationModal.type === 'addCategory' ? '1px solid rgba(73, 102, 198, 0.4)' :
+                        '1px solid rgba(255, 85, 85, 0.4)',
+                  color:
+                    confirmationModal.type === 'saveSuccess' ? '#4CAF50' :
+                      confirmationModal.type === 'addCategory' ? '#4966c6' :
+                        '#ff8a8a',
                   borderRadius: '7px',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  opacity: (confirmationModal.type === 'addCategory' && !confirmationModal.inputValue?.trim()) ? 0.5 : 1
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(255, 85, 85, 0.3)';
-                  e.currentTarget.style.color = '#ff6666';
+                  if (confirmationModal.type === 'addCategory' && !confirmationModal.inputValue?.trim()) return;
+
+                  if (confirmationModal.type === 'saveSuccess') {
+                    e.currentTarget.style.backgroundColor = 'rgba(76, 175, 80, 0.3)';
+                    e.currentTarget.style.color = '#45a049';
+                  } else if (confirmationModal.type === 'addCategory') {
+                    e.currentTarget.style.backgroundColor = 'rgba(73, 102, 198, 0.3)';
+                    e.currentTarget.style.color = '#3d5af1';
+                  } else {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 85, 85, 0.3)';
+                    e.currentTarget.style.color = '#ff6666';
+                  }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'rgba(255, 85, 85, 0.2)';
-                  e.currentTarget.style.color = '#ff8a8a';
+                  if (confirmationModal.type === 'saveSuccess') {
+                    e.currentTarget.style.backgroundColor = 'rgba(76, 175, 80, 0.2)';
+                    e.currentTarget.style.color = '#4CAF50';
+                  } else if (confirmationModal.type === 'addCategory') {
+                    e.currentTarget.style.backgroundColor = 'rgba(73, 102, 198, 0.2)';
+                    e.currentTarget.style.color = '#4966c6';
+                  } else {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 85, 85, 0.2)';
+                    e.currentTarget.style.color = '#ff8a8a';
+                  }
                 }}
               >
-                Excluir
+                {confirmationModal.type === 'saveSuccess'
+                  ? 'OK'
+                  : confirmationModal.type === 'addCategory'
+                    ? 'Adicionar'
+                    : confirmationModal.type === 'deletePop'
+                      ? 'Excluir POP'
+                      : 'Excluir Categoria'}
               </button>
             </div>
           </div>

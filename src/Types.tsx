@@ -181,7 +181,7 @@ export const httpClient = {
 };
 
 // Implementação do serviço API real (para usar quando backend estiver pronto)
-export const realApiService: ApiService = {
+export const apiService: ApiService = {
   async createPop(popData: PopData): Promise<ApiResponse<PopData>> {
     return httpClient.post<PopData>(API_ENDPOINTS.POPS, popData);
   },
